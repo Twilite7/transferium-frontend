@@ -1,0 +1,10 @@
+{
+  "network": "arc",
+  "chainId": "5042002",
+  "deployer": "0x13E569C96c7F884443d0c3Ac5019D020dE32bFb3",
+  "PlayerRegistry": "0x8d30a21c5b706F7Fc8aac8B79adAF5A3D2ba326D",
+  "TransferWindow": "0x2cD6A74870ED6f9d1F3b0178cbcc1Fd744aFBb19",
+  "TransferEscrow": "0x1311143775aef20840cdEBeccA8e493B383DBD91",
+  "LoanEscrow": "0x834E25E315A9eda59a6105341d223dADf9c0FD60",
+  "usdcAddress": "0x3600000000000000000000000000000000000000"
+}

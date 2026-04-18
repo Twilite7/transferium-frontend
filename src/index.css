@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
+
+:root {
+  --bg-primary:    #0a0c10;
+  --bg-secondary:  #0f1219;
+  --bg-card:       #131820;
+  --bg-hover:      #1a2030;
+  --border:        #1e2535;
+  --border-accent: #2a3550;
+  --gold:          #c9a84c;
+  --gold-light:    #e8c96a;
+  --gold-dim:      #7a6330;
+  --text-primary:  #e8eaf0;
+  --text-secondary:#8a9ab5;
+  --text-dim:      #4a5568;
+  --text-mono:     #6eb5ff;
+  --green:         #2dce89;
+  --red:           #f75c5c;
+  --amber:         #f7b731;
+  --font-display:  'Bebas Neue', sans-serif;
+  --font-body:     'Libre Baskerville', serif;
+  --font-mono:     'DM Mono', monospace;
+  --radius-sm:     4px;
+  --radius-md:     8px;
+  --radius-lg:     12px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: 0.04em; line-height: 1.1; }
+code, .mono { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-mono); }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-accent); border-radius: 3px; }
