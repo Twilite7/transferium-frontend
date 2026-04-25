@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { waitForTx } from "../utils/waitForTx";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
@@ -131,7 +132,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
         form.name, form.position, form.nationality, expiry, salary, { value: 0n }
       );
       setTxStatus("Waiting for confirmation...");
-      await tx.wait();
+      await waitForTx(tx, wallet.provider!);
       setTxStatus("Player registered.");
       setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "" });
       await loadPlayers();
@@ -150,7 +151,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
       const fee        = await registry.listingFee();
       const priceUnits = ethers.parseUnits(listingPrice, 6);
-      await (await registry.listPlayer(playerId, priceUnits, { value: fee })).wait();
+      await waitForTx(await registry.listPlayer(playerId, priceUnits, { value: fee }), wallet.provider!);
       setTxStatus(`Player #${playerId} listed.`);
       setListingId(null);
       setListingPrice("");
@@ -165,7 +166,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     setTxStatus(`Delisting #${playerId}...`);
     try {
       const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      await (await registry.delistPlayer(playerId)).wait();
+      await waitForTx(await registry.delistPlayer(playerId), wallet.provider!);
       setTxStatus(`Player #${playerId} delisted.`);
       await loadPlayers();
     } catch (err: any) {
@@ -249,8 +250,8 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                 const isLast     = i === players.length - 1;
                 const showBorder = !isLast || isRegistrar;
                 return (
-                  <>
-                    <tr key={p.id?.toString() ?? String(i)} style={{ borderBottom: showBorder ? "1px solid var(--border)" : "none" }}>
+                  <React.Fragment key={p.id?.toString() ?? String(i)}>
+                    <tr style={{ borderBottom: showBorder ? "1px solid var(--border)" : "none" }}>
                       <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-dim)" }}>#{p.id?.toString() ?? "?"}</td>
                       <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-body)", fontSize: "0.85rem" }}>{p.name}</td>
                       <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.position}</td>
@@ -306,7 +307,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })}
             </tbody>

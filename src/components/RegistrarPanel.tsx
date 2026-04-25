@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ethers } from "ethers";
+import { waitForTx } from "../utils/waitForTx";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
 import { PLAYER_REGISTRY_ABI } from "../config/abis";
@@ -16,7 +17,7 @@ interface Props {
     documentsVerified:        boolean;
     registrationContractHash: string;
   };
-  onRefresh: () => void;
+  onRefresh: () => Promise<void>;
 }
 
 const input = {
@@ -88,9 +89,10 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
     setStatus("Verifying player...");
     try {
       const registry = getRegistry();
-      await (await registry.verifyPlayer(playerId)).wait();
+      await waitForTx(await registry.verifyPlayer(playerId), wallet.provider!);
       setStatus("Player verified.");
-      onRefresh();
+      setExpanded(null);
+      await onRefresh();
     } catch (err: any) {
       setStatus(`Error: ${err.reason ?? err.message}`);
     }
@@ -104,11 +106,11 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
     setStatus("Setting medical clearance...");
     try {
       const registry = getRegistry();
-      await (await registry.setMedicalClearance(playerId, medHash)).wait();
+      await waitForTx(await registry.setMedicalClearance(playerId, medHash), wallet.provider!);
       setStatus("Medical clearance set.");
       setMedHash("");
       setExpanded(null);
-      onRefresh();
+      await onRefresh();
     } catch (err: any) {
       setStatus(`Error: ${err.reason ?? err.message}`);
     }
@@ -128,11 +130,11 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
     setStatus("Submitting legal documents...");
     try {
       const registry = getRegistry();
-      await (await registry.submitLegalDocuments(playerId, regHash, idHash, tmsHash, workPermit)).wait();
+      await waitForTx(await registry.submitLegalDocuments(playerId, regHash, idHash, tmsHash, workPermit), wallet.provider!);
       setStatus("Legal documents submitted.");
       setRegHash(""); setIdHash(""); setTmsHash(""); setPermitHash("");
       setExpanded(null);
-      onRefresh();
+      await onRefresh();
     } catch (err: any) {
       setStatus(`Error: ${err.reason ?? err.message}`);
     }
@@ -142,9 +144,10 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
     setStatus("Verifying legal documents...");
     try {
       const registry = getRegistry();
-      await (await registry.verifyLegalDocuments(playerId)).wait();
+      await waitForTx(await registry.verifyLegalDocuments(playerId), wallet.provider!);
       setStatus("Legal documents verified.");
-      onRefresh();
+      setExpanded(null);
+      await onRefresh();
     } catch (err: any) {
       setStatus(`Error: ${err.reason ?? err.message}`);
     }
@@ -158,11 +161,11 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
     setStatus("Setting player wallet...");
     try {
       const registry = getRegistry();
-      await (await registry.setPlayerWallet(playerId, playerWallet)).wait();
+      await waitForTx(await registry.setPlayerWallet(playerId, playerWallet), wallet.provider!);
       setStatus("Player wallet set. Only the player can update this going forward.");
       setPlayerWallet("");
       setExpanded(null);
-      onRefresh();
+      await onRefresh();
     } catch (err: any) {
       setStatus(`Error: ${err.reason ?? err.message}`);
     }
