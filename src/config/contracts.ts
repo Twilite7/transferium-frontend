@@ -16,6 +16,6 @@ export const PRIMARY_CURRENCY_SYMBOL = "€";
 export const ARC_TESTNET = {
   chainId:  5042002,
   name:     "Arc Testnet",
-  rpcUrl:   "https://arc-testnet.drpc.org",
+  rpcUrl:   "https://arc-testnet.g.alchemy.com/v2/Sc8Pdqrfm6g-QWJFld1xG",
   currency: "ETH",
 } as const;

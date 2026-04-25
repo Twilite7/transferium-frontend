@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
 import { PLAYER_REGISTRY_ABI } from "../config/abis";
+import { RegistrarPanel } from "../components/RegistrarPanel";
 
 interface Player {
   id:                  bigint;
@@ -20,6 +21,7 @@ interface Player {
   releaseClause:       bigint;
   registeredAt:        bigint;
   _owner?:             string;
+  _legalDocs?:         { documentsVerified: boolean; registrationContractHash: string; };
 }
 
 const btn = (color: string, bg = "transparent") => ({
@@ -85,9 +87,25 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const loaded: Player[] = [];
       for (let i = 1; i <= Number(total); i++) {
         try {
-          const p = await registry.getPlayer(i);
+          const raw = await registry.getPlayer(i);
           const owner = await registry.ownerOf(i);
-          loaded.push({ ...p, _owner: owner });
+          loaded.push({
+            id:                  raw.id,
+            name:                raw.name,
+            position:            raw.position,
+            nationality:         raw.nationality,
+            contractExpiry:      raw.contractExpiry,
+            weeklySalary:        raw.weeklySalary,
+            playerWallet:        raw.playerWallet,
+            isVerified:          raw.isVerified,
+            isListed:            raw.isListed,
+            medicalClearance:    raw.medicalClearance,
+            medicalDocumentHash: raw.medicalDocumentHash,
+            askingPrice:         raw.askingPrice,
+            releaseClause:       raw.releaseClause,
+            registeredAt:        raw.registeredAt,
+            _owner:              owner,
+          });
         } catch {}
       }
       setPlayers(loaded);
@@ -103,17 +121,19 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     setTxStatus("Submitting...");
     try {
       const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      const fee        = await registry.registrationFee();
-      const expiry     = Math.floor(new Date(form.contractExpiry).getTime() / 1000);
+      
+      const expiry     = Math.floor(new Date(form.contractExpiry).getTime() / 1000) + 86400;
       const salary     = form.weeklySalary ? ethers.parseUnits(form.weeklySalary, 6) : 0n;
-      const tx         = await registry.registerPlayer(form.name, form.position, form.nationality, expiry, salary, { value: fee });
+      console.log("ARGS:", form.name, form.position, form.nationality, expiry, salary, typeof salary);
+      const tx = await registry.registerPlayer(form.name, form.position, form.nationality, expiry, salary, { value: 0n });
       setTxStatus("Waiting for confirmation...");
       await tx.wait();
       setTxStatus("Player registered.");
       setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "" });
       await loadPlayers();
     } catch (err: any) {
-      setTxStatus(`Error: ${err.reason ?? err.message}`);
+      const msg = err.data === "0xee457142" ? "A player with this name is already registered by your club." : (err.reason ?? err.message);
+      setTxStatus(`Error: ${msg}`);
     }
   }
 
@@ -126,7 +146,8 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setTxStatus(`Player #${playerId} verified.`);
       await loadPlayers();
     } catch (err: any) {
-      setTxStatus(`Error: ${err.reason ?? err.message}`);
+      const msg = err.data === "0xee457142" ? "A player with this name is already registered by your club." : (err.reason ?? err.message);
+      setTxStatus(`Error: ${msg}`);
     }
   }
 
@@ -143,7 +164,8 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setListingPrice("");
       await loadPlayers();
     } catch (err: any) {
-      setTxStatus(`Error: ${err.reason ?? err.message}`);
+      const msg = err.data === "0xee457142" ? "A player with this name is already registered by your club." : (err.reason ?? err.message);
+      setTxStatus(`Error: ${msg}`);
     }
   }
 
@@ -156,7 +178,8 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setTxStatus(`Player #${playerId} delisted.`);
       await loadPlayers();
     } catch (err: any) {
-      setTxStatus(`Error: ${err.reason ?? err.message}`);
+      const msg = err.data === "0xee457142" ? "A player with this name is already registered by your club." : (err.reason ?? err.message);
+      setTxStatus(`Error: ${msg}`);
     }
   }
 
@@ -234,8 +257,9 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
               {players.map((p, i) => {
                 const status = statusLabel(p);
                 return (
-                  <tr key={p.id.toString()} style={{ borderBottom: i < players.length - 1 ? "1px solid var(--border)" : "none" }}>
-                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-dim)" }}>#{p.id.toString()}</td>
+                  <>
+                  <tr key={p.id?.toString() ?? String(i)} style={{ borderBottom: !isRegistrar && i < players.length - 1 ? "1px solid var(--border)" : "none" }}>
+                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-dim)" }}>#{p.id?.toString() ?? "?"}</td>
                     <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-body)", fontSize: "0.85rem" }}>{p.name}</td>
                     <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.position}</td>
                     <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.nationality}</td>
@@ -280,6 +304,20 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                       </div>
                     </td>
                   </tr>
+                  {isRegistrar && (
+                    <tr key={`reg-${p.id?.toString() ?? String(i)}`} style={{ borderBottom: i < players.length - 1 ? "1px solid var(--border)" : "none" }}>
+                      <td colSpan={8} style={{ padding: "0 1.25rem 1rem" }}>
+                        <RegistrarPanel
+                          wallet={wallet}
+                          playerId={p.id}
+                          player={{ isVerified: p.isVerified, medicalClearance: p.medicalClearance, playerWallet: p.playerWallet }}
+                          legalDocs={p._legalDocs ?? { documentsVerified: false, registrationContractHash: "0x" + "0".repeat(64) }}
+                          onRefresh={loadPlayers}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                  </>
                 );
               })}
             </tbody>

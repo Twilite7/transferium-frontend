@@ -1,6 +1,6 @@
 import { useWallet } from "../hooks/useWallet";
 
-export function Loans({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
+export function Loans(_: { wallet: ReturnType<typeof useWallet> }) {
   return (
     <div>
       <div style={{ marginBottom: "2.5rem" }}>
