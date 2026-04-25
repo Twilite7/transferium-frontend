@@ -50,14 +50,13 @@ const input = {
 };
 
 export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
-  const [players, setPlayers]         = useState<Player[]>([]);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState<string | null>(null);
-  const [txStatus, setTxStatus]       = useState<string | null>(null);
-  const [isRegistrar, setIsRegistrar] = useState(false);
-  const [listingId, setListingId]     = useState<bigint | null>(null);
+  const [players, setPlayers]           = useState<Player[]>([]);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [txStatus, setTxStatus]         = useState<string | null>(null);
+  const [isRegistrar, setIsRegistrar]   = useState(false);
+  const [listingId, setListingId]       = useState<bigint | null>(null);
   const [listingPrice, setListingPrice] = useState("");
-
   const [form, setForm] = useState({
     name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: ""
   });
@@ -71,7 +70,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   async function checkRoles() {
     if (!wallet.provider || !wallet.address) return;
     try {
-      const registry      = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
+      const registry       = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
       const REGISTRAR_ROLE = await registry.REGISTRAR_ROLE();
       setIsRegistrar(await registry.hasRole(REGISTRAR_ROLE, wallet.address));
     } catch {}
@@ -87,8 +86,9 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const loaded: Player[] = [];
       for (let i = 1; i <= Number(total); i++) {
         try {
-          const raw = await registry.getPlayer(i);
-          const owner = await registry.ownerOf(i);
+          const raw      = await registry.getPlayer(i);
+          const owner    = await registry.ownerOf(i);
+          const legalRaw = await registry.getLegalDocuments(i);
           loaded.push({
             id:                  raw.id,
             name:                raw.name,
@@ -105,6 +105,10 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             releaseClause:       raw.releaseClause,
             registeredAt:        raw.registeredAt,
             _owner:              owner,
+            _legalDocs:          {
+              documentsVerified:        legalRaw.documentsVerified,
+              registrationContractHash: legalRaw.registrationContractHash,
+            },
           });
         } catch {}
       }
@@ -120,33 +124,21 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     if (!wallet.signer) return;
     setTxStatus("Submitting...");
     try {
-      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      
-      const expiry     = Math.floor(new Date(form.contractExpiry).getTime() / 1000) + 86400;
-      const salary     = form.weeklySalary ? ethers.parseUnits(form.weeklySalary, 6) : 0n;
-      console.log("ARGS:", form.name, form.position, form.nationality, expiry, salary, typeof salary);
-      const tx = await registry.registerPlayer(form.name, form.position, form.nationality, expiry, salary, { value: 0n });
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      const expiry   = Math.floor(new Date(form.contractExpiry).getTime() / 1000) + 86400;
+      const salary   = form.weeklySalary ? ethers.parseUnits(form.weeklySalary, 6) : 0n;
+      const tx       = await registry.registerPlayer(
+        form.name, form.position, form.nationality, expiry, salary, { value: 0n }
+      );
       setTxStatus("Waiting for confirmation...");
       await tx.wait();
       setTxStatus("Player registered.");
       setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "" });
       await loadPlayers();
     } catch (err: any) {
-      const msg = err.data === "0xee457142" ? "A player with this name is already registered by your club." : (err.reason ?? err.message);
-      setTxStatus(`Error: ${msg}`);
-    }
-  }
-
-  async function verifyPlayer(playerId: bigint) {
-    if (!wallet.signer) return;
-    setTxStatus(`Verifying #${playerId}...`);
-    try {
-      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      await (await registry.verifyPlayer(playerId)).wait();
-      setTxStatus(`Player #${playerId} verified.`);
-      await loadPlayers();
-    } catch (err: any) {
-      const msg = err.data === "0xee457142" ? "A player with this name is already registered by your club." : (err.reason ?? err.message);
+      const msg = err.data === "0xee457142"
+        ? "A player with this name is already registered by your club."
+        : (err.reason ?? err.message);
       setTxStatus(`Error: ${msg}`);
     }
   }
@@ -164,8 +156,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setListingPrice("");
       await loadPlayers();
     } catch (err: any) {
-      const msg = err.data === "0xee457142" ? "A player with this name is already registered by your club." : (err.reason ?? err.message);
-      setTxStatus(`Error: ${msg}`);
+      setTxStatus(`Error: ${err.reason ?? err.message}`);
     }
   }
 
@@ -178,8 +169,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setTxStatus(`Player #${playerId} delisted.`);
       await loadPlayers();
     } catch (err: any) {
-      const msg = err.data === "0xee457142" ? "A player with this name is already registered by your club." : (err.reason ?? err.message);
-      setTxStatus(`Error: ${msg}`);
+      setTxStatus(`Error: ${err.reason ?? err.message}`);
     }
   }
 
@@ -187,10 +177,10 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     wallet.address ? p._owner?.toLowerCase() === wallet.address.toLowerCase() : false;
 
   const statusLabel = (p: Player) => {
-    if (p.isListed) return { label: "LISTED", color: "var(--gold)", border: "var(--gold-dim)" };
-    if (p.medicalClearance) return { label: "CLEARED", color: "var(--green)", border: "var(--green)" };
-    if (p.isVerified) return { label: "VERIFIED", color: "var(--text-secondary)", border: "var(--border-accent)" };
-    return { label: "PENDING", color: "var(--text-dim)", border: "var(--border)" };
+    if (p.isListed)         return { label: "LISTED",    color: "var(--gold)",           border: "var(--gold-dim)"      };
+    if (p.medicalClearance) return { label: "CLEARED",   color: "var(--green)",          border: "var(--green)"         };
+    if (p.isVerified)       return { label: "VERIFIED",  color: "var(--text-secondary)", border: "var(--border-accent)" };
+    return                         { label: "PENDING",   color: "var(--text-dim)",       border: "var(--border)"        };
   };
 
   return (
@@ -209,10 +199,10 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr auto", gap: "0.75rem", alignItems: "end" }}>
             {[
-              { key: "name",           placeholder: "Full Name",        type: "text"   },
-              { key: "position",       placeholder: "Position",         type: "text"   },
-              { key: "nationality",    placeholder: "Nationality",      type: "text"   },
-              { key: "contractExpiry", placeholder: "Contract Expiry",  type: "date"   },
+              { key: "name",           placeholder: "Full Name",                    type: "text"   },
+              { key: "position",       placeholder: "Position",                     type: "text"   },
+              { key: "nationality",    placeholder: "Nationality",                  type: "text"   },
+              { key: "contractExpiry", placeholder: "Contract Expiry",              type: "date"   },
               { key: "weeklySalary",   placeholder: "Weekly Salary in € (e.g. 50000)", type: "number" },
             ].map(f => (
               <input key={f.key} type={f.type} placeholder={f.placeholder}
@@ -255,68 +245,67 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             </thead>
             <tbody>
               {players.map((p, i) => {
-                const status = statusLabel(p);
+                const status     = statusLabel(p);
+                const isLast     = i === players.length - 1;
+                const showBorder = !isLast || isRegistrar;
                 return (
                   <>
-                  <tr key={p.id?.toString() ?? String(i)} style={{ borderBottom: !isRegistrar && i < players.length - 1 ? "1px solid var(--border)" : "none" }}>
-                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-dim)" }}>#{p.id?.toString() ?? "?"}</td>
-                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-body)", fontSize: "0.85rem" }}>{p.name}</td>
-                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.position}</td>
-                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.nationality}</td>
-                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-primary)" }}>
-                      {p.weeklySalary > 0n ? `€${(Number(p.weeklySalary) / 1e6).toLocaleString()}/wk` : "—"}
-                    </td>
-                    <td style={{ padding: "1rem 1.25rem" }}>
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.08em", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: `1px solid ${status.border}`, color: status.color }}>
-                        {status.label}
-                      </span>
-                    </td>
-                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-primary)" }}>
-                      {p.isListed ? `€${(Number(p.askingPrice) / 1e6).toLocaleString()}` : "—"}
-                    </td>
-                    <td style={{ padding: "1rem 1.25rem" }}>
-                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" as const }}>
-                        {isRegistrar && !p.isVerified && (
-                          <button onClick={() => verifyPlayer(p.id)} style={btn("var(--green)")}>VERIFY</button>
-                        )}
-                        {isMyPlayer(p) && p.isVerified && !p.isListed && listingId !== p.id && (
-                          <button onClick={() => { setListingId(p.id); setListingPrice(""); }} style={btn("var(--gold)")}>LIST</button>
-                        )}
-                        {listingId === p.id && (
-                          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                            <span style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>€</span>
-                            <input type="number" placeholder="asking price" value={listingPrice}
-                              onChange={e => setListingPrice(e.target.value)}
-                              style={{ ...input, width: "120px", padding: "4px 8px", border: "1px solid var(--border-accent)" }}
-                            />
-                            <button onClick={() => listPlayer(p.id)} disabled={!listingPrice}
-                              style={btn("var(--green)", listingPrice ? "rgba(45,206,137,0.1)" : "transparent")}>
-                              CONFIRM
-                            </button>
-                            <button onClick={() => { setListingId(null); setListingPrice(""); }} style={btn("var(--text-dim)")}>
-                              CANCEL
-                            </button>
-                          </div>
-                        )}
-                        {isMyPlayer(p) && p.isListed && (
-                          <button onClick={() => delistPlayer(p.id)} style={btn("var(--red)")}>DELIST</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  {isRegistrar && (
-                    <tr key={`reg-${p.id?.toString() ?? String(i)}`} style={{ borderBottom: i < players.length - 1 ? "1px solid var(--border)" : "none" }}>
-                      <td colSpan={8} style={{ padding: "0 1.25rem 1rem" }}>
-                        <RegistrarPanel
-                          wallet={wallet}
-                          playerId={p.id}
-                          player={{ isVerified: p.isVerified, medicalClearance: p.medicalClearance, playerWallet: p.playerWallet }}
-                          legalDocs={p._legalDocs ?? { documentsVerified: false, registrationContractHash: "0x" + "0".repeat(64) }}
-                          onRefresh={loadPlayers}
-                        />
+                    <tr key={p.id?.toString() ?? String(i)} style={{ borderBottom: showBorder ? "1px solid var(--border)" : "none" }}>
+                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-dim)" }}>#{p.id?.toString() ?? "?"}</td>
+                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-body)", fontSize: "0.85rem" }}>{p.name}</td>
+                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.position}</td>
+                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.nationality}</td>
+                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-primary)" }}>
+                        {p.weeklySalary > 0n ? `€${(Number(p.weeklySalary) / 1e6).toLocaleString()}/wk` : "—"}
+                      </td>
+                      <td style={{ padding: "1rem 1.25rem" }}>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.08em", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: `1px solid ${status.border}`, color: status.color }}>
+                          {status.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-primary)" }}>
+                        {p.isListed ? `€${(Number(p.askingPrice) / 1e6).toLocaleString()}` : "—"}
+                      </td>
+                      <td style={{ padding: "1rem 1.25rem" }}>
+                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" as const }}>
+                          {isMyPlayer(p) && p.isVerified && p.medicalClearance && !p.isListed && listingId !== p.id && (
+                            <button onClick={() => { setListingId(p.id); setListingPrice(""); }} style={btn("var(--gold)")}>LIST</button>
+                          )}
+                          {listingId === p.id && (
+                            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                              <span style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>€</span>
+                              <input type="number" placeholder="asking price" value={listingPrice}
+                                onChange={e => setListingPrice(e.target.value)}
+                                style={{ ...input, width: "120px", padding: "4px 8px", border: "1px solid var(--border-accent)" }}
+                              />
+                              <button onClick={() => listPlayer(p.id)} disabled={!listingPrice}
+                                style={btn("var(--green)", listingPrice ? "rgba(45,206,137,0.1)" : "transparent")}>
+                                CONFIRM
+                              </button>
+                              <button onClick={() => { setListingId(null); setListingPrice(""); }} style={btn("var(--text-dim)")}>
+                                CANCEL
+                              </button>
+                            </div>
+                          )}
+                          {isMyPlayer(p) && p.isListed && (
+                            <button onClick={() => delistPlayer(p.id)} style={btn("var(--red)")}>DELIST</button>
+                          )}
+                        </div>
                       </td>
                     </tr>
-                  )}
+                    {isRegistrar && (
+                      <tr key={`reg-${p.id?.toString() ?? String(i)}`} style={{ borderBottom: isLast ? "none" : "1px solid var(--border)" }}>
+                        <td colSpan={8} style={{ padding: "0 1.25rem 1rem" }}>
+                          <RegistrarPanel
+                            wallet={wallet}
+                            playerId={p.id}
+                            player={{ isVerified: p.isVerified, medicalClearance: p.medicalClearance, playerWallet: p.playerWallet }}
+                            legalDocs={p._legalDocs ?? { documentsVerified: false, registrationContractHash: "0x" + "0".repeat(64) }}
+                            onRefresh={loadPlayers}
+                          />
+                        </td>
+                      </tr>
+                    )}
                   </>
                 );
               })}
