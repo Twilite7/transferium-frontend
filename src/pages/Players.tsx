@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { waitForTx } from "../utils/waitForTx";
+import { parseError } from "../utils/parseError";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
@@ -137,10 +138,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "" });
       await loadPlayers();
     } catch (err: any) {
-      const msg = err.data === "0xee457142"
-        ? "A player with this name is already registered by your club."
-        : (err.reason ?? err.message);
-      setTxStatus(`Error: ${msg}`);
+      setTxStatus(parseError(err));
     }
   }
 
@@ -157,7 +155,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setListingPrice("");
       await loadPlayers();
     } catch (err: any) {
-      setTxStatus(`Error: ${err.reason ?? err.message}`);
+      setTxStatus(parseError(err));
     }
   }
 
@@ -170,7 +168,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setTxStatus(`Player #${playerId} delisted.`);
       await loadPlayers();
     } catch (err: any) {
-      setTxStatus(`Error: ${err.reason ?? err.message}`);
+      setTxStatus(parseError(err));
     }
   }
 
@@ -199,19 +197,235 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             REGISTER NEW PLAYER
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr auto", gap: "0.75rem", alignItems: "end" }}>
-            {[
-              { key: "name",           placeholder: "Full Name",                    type: "text"   },
-              { key: "position",       placeholder: "Position",                     type: "text"   },
-              { key: "nationality",    placeholder: "Nationality",                  type: "text"   },
-              { key: "contractExpiry", placeholder: "Contract Expiry",              type: "date"   },
-              { key: "weeklySalary",   placeholder: "Weekly Salary in € (e.g. 50000)", type: "number" },
-            ].map(f => (
-              <input key={f.key} type={f.type} placeholder={f.placeholder}
-                value={(form as any)[f.key]}
-                onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                style={input}
-              />
-            ))}
+            <input type="text" placeholder="Full Name"
+              value={form.name}
+              onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+              style={input}
+            />
+            <select value={form.position}
+              onChange={e => setForm(prev => ({ ...prev, position: e.target.value }))}
+              style={{ ...input, cursor: "pointer" }}>
+              <option value="">Position</option>
+                <option key="GK" value="GK">GK</option>
+                <option key="SW" value="SW">SW</option>
+                <option key="CB" value="CB">CB</option>
+                <option key="CCB" value="CCB">CCB</option>
+                <option key="LCB" value="LCB">LCB</option>
+                <option key="RCB" value="RCB">RCB</option>
+                <option key="LB" value="LB">LB</option>
+                <option key="RB" value="RB">RB</option>
+                <option key="LWB" value="LWB">LWB</option>
+                <option key="RWB" value="RWB">RWB</option>
+                <option key="CDM" value="CDM">CDM</option>
+                <option key="DM" value="DM">DM</option>
+                <option key="CM" value="CM">CM</option>
+                <option key="LCM" value="LCM">LCM</option>
+                <option key="RCM" value="RCM">RCM</option>
+                <option key="CAM" value="CAM">CAM</option>
+                <option key="AM" value="AM">AM</option>
+                <option key="AMF" value="AMF">AMF</option>
+                <option key="LM" value="LM">LM</option>
+                <option key="RM" value="RM">RM</option>
+                <option key="LW" value="LW">LW</option>
+                <option key="RW" value="RW">RW</option>
+                <option key="LWF" value="LWF">LWF</option>
+                <option key="RWF" value="RWF">RWF</option>
+                <option key="SS" value="SS">SS</option>
+                <option key="CF" value="CF">CF</option>
+                <option key="ST" value="ST">ST</option>
+                <option key="LF" value="LF">LF</option>
+                <option key="RF" value="RF">RF</option>
+            </select>
+            <select value={form.nationality}
+              onChange={e => setForm(prev => ({ ...prev, nationality: e.target.value }))}
+              style={{ ...input, cursor: "pointer" }}>
+              <option value="">Nationality</option>
+                <option key="Afghan" value="Afghan">Afghan</option>
+                <option key="Albanian" value="Albanian">Albanian</option>
+                <option key="Algerian" value="Algerian">Algerian</option>
+                <option key="Andorran" value="Andorran">Andorran</option>
+                <option key="Angolan" value="Angolan">Angolan</option>
+                <option key="Antiguan" value="Antiguan">Antiguan</option>
+                <option key="Argentine" value="Argentine">Argentine</option>
+                <option key="Armenian" value="Armenian">Armenian</option>
+                <option key="Australian" value="Australian">Australian</option>
+                <option key="Austrian" value="Austrian">Austrian</option>
+                <option key="Azerbaijani" value="Azerbaijani">Azerbaijani</option>
+                <option key="Bahamian" value="Bahamian">Bahamian</option>
+                <option key="Bahraini" value="Bahraini">Bahraini</option>
+                <option key="Bangladeshi" value="Bangladeshi">Bangladeshi</option>
+                <option key="Barbadian" value="Barbadian">Barbadian</option>
+                <option key="Belarusian" value="Belarusian">Belarusian</option>
+                <option key="Belgian" value="Belgian">Belgian</option>
+                <option key="Belizean" value="Belizean">Belizean</option>
+                <option key="Beninese" value="Beninese">Beninese</option>
+                <option key="Bhutanese" value="Bhutanese">Bhutanese</option>
+                <option key="Bolivian" value="Bolivian">Bolivian</option>
+                <option key="Bosnian" value="Bosnian">Bosnian</option>
+                <option key="Botswanan" value="Botswanan">Botswanan</option>
+                <option key="Brazilian" value="Brazilian">Brazilian</option>
+                <option key="Bruneian" value="Bruneian">Bruneian</option>
+                <option key="Bulgarian" value="Bulgarian">Bulgarian</option>
+                <option key="Burkinabe" value="Burkinabe">Burkinabe</option>
+                <option key="Burundian" value="Burundian">Burundian</option>
+                <option key="Cambodian" value="Cambodian">Cambodian</option>
+                <option key="Cameroonian" value="Cameroonian">Cameroonian</option>
+                <option key="Canadian" value="Canadian">Canadian</option>
+                <option key="Cape Verdean" value="Cape Verdean">Cape Verdean</option>
+                <option key="Central African" value="Central African">Central African</option>
+                <option key="Chadian" value="Chadian">Chadian</option>
+                <option key="Chilean" value="Chilean">Chilean</option>
+                <option key="Chinese" value="Chinese">Chinese</option>
+                <option key="Colombian" value="Colombian">Colombian</option>
+                <option key="Comoran" value="Comoran">Comoran</option>
+                <option key="Congolese" value="Congolese">Congolese</option>
+                <option key="Costa Rican" value="Costa Rican">Costa Rican</option>
+                <option key="Croatian" value="Croatian">Croatian</option>
+                <option key="Cuban" value="Cuban">Cuban</option>
+                <option key="Cypriot" value="Cypriot">Cypriot</option>
+                <option key="Czech" value="Czech">Czech</option>
+                <option key="Danish" value="Danish">Danish</option>
+                <option key="Djiboutian" value="Djiboutian">Djiboutian</option>
+                <option key="Dominican" value="Dominican">Dominican</option>
+                <option key="Dutch" value="Dutch">Dutch</option>
+                <option key="Ecuadorian" value="Ecuadorian">Ecuadorian</option>
+                <option key="Egyptian" value="Egyptian">Egyptian</option>
+                <option key="Emirati" value="Emirati">Emirati</option>
+                <option key="English" value="English">English</option>
+                <option key="Equatorial Guinean" value="Equatorial Guinean">Equatorial Guinean</option>
+                <option key="Eritrean" value="Eritrean">Eritrean</option>
+                <option key="Estonian" value="Estonian">Estonian</option>
+                <option key="Eswatini" value="Eswatini">Eswatini</option>
+                <option key="Ethiopian" value="Ethiopian">Ethiopian</option>
+                <option key="Fijian" value="Fijian">Fijian</option>
+                <option key="Finnish" value="Finnish">Finnish</option>
+                <option key="French" value="French">French</option>
+                <option key="Gabonese" value="Gabonese">Gabonese</option>
+                <option key="Gambian" value="Gambian">Gambian</option>
+                <option key="Georgian" value="Georgian">Georgian</option>
+                <option key="German" value="German">German</option>
+                <option key="Ghanaian" value="Ghanaian">Ghanaian</option>
+                <option key="Greek" value="Greek">Greek</option>
+                <option key="Grenadian" value="Grenadian">Grenadian</option>
+                <option key="Guatemalan" value="Guatemalan">Guatemalan</option>
+                <option key="Guinean" value="Guinean">Guinean</option>
+                <option key="Guinea-Bissauan" value="Guinea-Bissauan">Guinea-Bissauan</option>
+                <option key="Guyanese" value="Guyanese">Guyanese</option>
+                <option key="Haitian" value="Haitian">Haitian</option>
+                <option key="Honduran" value="Honduran">Honduran</option>
+                <option key="Hungarian" value="Hungarian">Hungarian</option>
+                <option key="Icelandic" value="Icelandic">Icelandic</option>
+                <option key="Indian" value="Indian">Indian</option>
+                <option key="Indonesian" value="Indonesian">Indonesian</option>
+                <option key="Iranian" value="Iranian">Iranian</option>
+                <option key="Iraqi" value="Iraqi">Iraqi</option>
+                <option key="Irish" value="Irish">Irish</option>
+                <option key="Israeli" value="Israeli">Israeli</option>
+                <option key="Italian" value="Italian">Italian</option>
+                <option key="Ivorian" value="Ivorian">Ivorian</option>
+                <option key="Jamaican" value="Jamaican">Jamaican</option>
+                <option key="Japanese" value="Japanese">Japanese</option>
+                <option key="Jordanian" value="Jordanian">Jordanian</option>
+                <option key="Kazakhstani" value="Kazakhstani">Kazakhstani</option>
+                <option key="Kenyan" value="Kenyan">Kenyan</option>
+                <option key="Kosovan" value="Kosovan">Kosovan</option>
+                <option key="Kuwaiti" value="Kuwaiti">Kuwaiti</option>
+                <option key="Kyrgyz" value="Kyrgyz">Kyrgyz</option>
+                <option key="Laotian" value="Laotian">Laotian</option>
+                <option key="Latvian" value="Latvian">Latvian</option>
+                <option key="Lebanese" value="Lebanese">Lebanese</option>
+                <option key="Liberian" value="Liberian">Liberian</option>
+                <option key="Libyan" value="Libyan">Libyan</option>
+                <option key="Liechtensteiner" value="Liechtensteiner">Liechtensteiner</option>
+                <option key="Lithuanian" value="Lithuanian">Lithuanian</option>
+                <option key="Luxembourger" value="Luxembourger">Luxembourger</option>
+                <option key="Malagasy" value="Malagasy">Malagasy</option>
+                <option key="Malawian" value="Malawian">Malawian</option>
+                <option key="Malaysian" value="Malaysian">Malaysian</option>
+                <option key="Maldivian" value="Maldivian">Maldivian</option>
+                <option key="Malian" value="Malian">Malian</option>
+                <option key="Maltese" value="Maltese">Maltese</option>
+                <option key="Mauritanian" value="Mauritanian">Mauritanian</option>
+                <option key="Mauritian" value="Mauritian">Mauritian</option>
+                <option key="Mexican" value="Mexican">Mexican</option>
+                <option key="Moldovan" value="Moldovan">Moldovan</option>
+                <option key="Mongolian" value="Mongolian">Mongolian</option>
+                <option key="Montenegrin" value="Montenegrin">Montenegrin</option>
+                <option key="Moroccan" value="Moroccan">Moroccan</option>
+                <option key="Mozambican" value="Mozambican">Mozambican</option>
+                <option key="Namibian" value="Namibian">Namibian</option>
+                <option key="Nepalese" value="Nepalese">Nepalese</option>
+                <option key="New Zealander" value="New Zealander">New Zealander</option>
+                <option key="Nicaraguan" value="Nicaraguan">Nicaraguan</option>
+                <option key="Nigerian" value="Nigerian">Nigerian</option>
+                <option key="Nigerien" value="Nigerien">Nigerien</option>
+                <option key="North Korean" value="North Korean">North Korean</option>
+                <option key="North Macedonian" value="North Macedonian">North Macedonian</option>
+                <option key="Norwegian" value="Norwegian">Norwegian</option>
+                <option key="Omani" value="Omani">Omani</option>
+                <option key="Pakistani" value="Pakistani">Pakistani</option>
+                <option key="Panamanian" value="Panamanian">Panamanian</option>
+                <option key="Papua New Guinean" value="Papua New Guinean">Papua New Guinean</option>
+                <option key="Paraguayan" value="Paraguayan">Paraguayan</option>
+                <option key="Peruvian" value="Peruvian">Peruvian</option>
+                <option key="Philippine" value="Philippine">Philippine</option>
+                <option key="Polish" value="Polish">Polish</option>
+                <option key="Portuguese" value="Portuguese">Portuguese</option>
+                <option key="Qatari" value="Qatari">Qatari</option>
+                <option key="Romanian" value="Romanian">Romanian</option>
+                <option key="Russian" value="Russian">Russian</option>
+                <option key="Rwandan" value="Rwandan">Rwandan</option>
+                <option key="Salvadoran" value="Salvadoran">Salvadoran</option>
+                <option key="Saudi" value="Saudi">Saudi</option>
+                <option key="Scottish" value="Scottish">Scottish</option>
+                <option key="Senegalese" value="Senegalese">Senegalese</option>
+                <option key="Serbian" value="Serbian">Serbian</option>
+                <option key="Sierra Leonean" value="Sierra Leonean">Sierra Leonean</option>
+                <option key="Singaporean" value="Singaporean">Singaporean</option>
+                <option key="Slovak" value="Slovak">Slovak</option>
+                <option key="Slovenian" value="Slovenian">Slovenian</option>
+                <option key="Somali" value="Somali">Somali</option>
+                <option key="South African" value="South African">South African</option>
+                <option key="South Korean" value="South Korean">South Korean</option>
+                <option key="South Sudanese" value="South Sudanese">South Sudanese</option>
+                <option key="Spanish" value="Spanish">Spanish</option>
+                <option key="Sri Lankan" value="Sri Lankan">Sri Lankan</option>
+                <option key="Sudanese" value="Sudanese">Sudanese</option>
+                <option key="Surinamese" value="Surinamese">Surinamese</option>
+                <option key="Swedish" value="Swedish">Swedish</option>
+                <option key="Swiss" value="Swiss">Swiss</option>
+                <option key="Syrian" value="Syrian">Syrian</option>
+                <option key="Taiwanese" value="Taiwanese">Taiwanese</option>
+                <option key="Tajik" value="Tajik">Tajik</option>
+                <option key="Tanzanian" value="Tanzanian">Tanzanian</option>
+                <option key="Thai" value="Thai">Thai</option>
+                <option key="Timorese" value="Timorese">Timorese</option>
+                <option key="Togolese" value="Togolese">Togolese</option>
+                <option key="Trinidadian" value="Trinidadian">Trinidadian</option>
+                <option key="Tunisian" value="Tunisian">Tunisian</option>
+                <option key="Turkish" value="Turkish">Turkish</option>
+                <option key="Turkmen" value="Turkmen">Turkmen</option>
+                <option key="Ugandan" value="Ugandan">Ugandan</option>
+                <option key="Ukrainian" value="Ukrainian">Ukrainian</option>
+                <option key="Uruguayan" value="Uruguayan">Uruguayan</option>
+                <option key="Uzbek" value="Uzbek">Uzbek</option>
+                <option key="Venezuelan" value="Venezuelan">Venezuelan</option>
+                <option key="Vietnamese" value="Vietnamese">Vietnamese</option>
+                <option key="Welsh" value="Welsh">Welsh</option>
+                <option key="Yemeni" value="Yemeni">Yemeni</option>
+                <option key="Zambian" value="Zambian">Zambian</option>
+                <option key="Zimbabwean" value="Zimbabwean">Zimbabwean</option>
+            </select>
+            <input type="date" placeholder="Contract Expiry"
+              value={form.contractExpiry}
+              onChange={e => setForm(prev => ({ ...prev, contractExpiry: e.target.value }))}
+              style={input}
+            />
+            <input type="number" placeholder="Weekly Salary in € (e.g. 50000)"
+              value={form.weeklySalary}
+              onChange={e => setForm(prev => ({ ...prev, weeklySalary: e.target.value }))}
+              style={input}
+            />
             <button onClick={registerPlayer}
               disabled={!form.name || !form.position || !form.nationality || !form.contractExpiry}
               style={{ background: "var(--gold)", border: "none", borderRadius: "var(--radius-sm)", color: "var(--bg-primary)", fontFamily: "var(--font-mono)", fontSize: "0.75rem", fontWeight: 500, padding: "8px 20px", cursor: "pointer", whiteSpace: "nowrap" as const }}>

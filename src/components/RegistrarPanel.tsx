@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ethers } from "ethers";
 import { waitForTx } from "../utils/waitForTx";
+import { parseError } from "../utils/parseError";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
 import { PLAYER_REGISTRY_ABI } from "../config/abis";
@@ -94,7 +95,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
       setExpanded(null);
       await onRefresh();
     } catch (err: any) {
-      setStatus(`Error: ${err.reason ?? err.message}`);
+      setStatus(parseError(err));
     }
   }
 
@@ -112,7 +113,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
       setExpanded(null);
       await onRefresh();
     } catch (err: any) {
-      setStatus(`Error: ${err.reason ?? err.message}`);
+      setStatus(parseError(err));
     }
   }
 
@@ -136,7 +137,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
       setExpanded(null);
       await onRefresh();
     } catch (err: any) {
-      setStatus(`Error: ${err.reason ?? err.message}`);
+      setStatus(parseError(err));
     }
   }
 
@@ -149,7 +150,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
       setExpanded(null);
       await onRefresh();
     } catch (err: any) {
-      setStatus(`Error: ${err.reason ?? err.message}`);
+      setStatus(parseError(err));
     }
   }
 
@@ -167,7 +168,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
       setExpanded(null);
       await onRefresh();
     } catch (err: any) {
-      setStatus(`Error: ${err.reason ?? err.message}`);
+      setStatus(parseError(err));
     }
   }
 

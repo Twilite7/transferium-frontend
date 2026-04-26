@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
+import { CONTRACTS } from "./config/contracts";
+import { PLAYER_REGISTRY_ABI } from "./config/abis";
 import { useWallet } from "./hooks/useWallet";
 import { Dashboard } from "./pages/Dashboard";
 import { Players }   from "./pages/Players";
 import { Transfers } from "./pages/Transfers";
 import { Loans }     from "./pages/Loans";
+import { League }    from "./pages/League";
 import "./index.css";
 
-type Page = "dashboard" | "players" | "transfers" | "loans";
+type Page = "dashboard" | "players" | "transfers" | "loans" | "league";
 
 export default function App() {
   const [page, setPage] = useState<Page>("dashboard");
@@ -20,6 +24,7 @@ export default function App() {
         {page === "players"    && <Players   wallet={wallet} />}
         {page === "transfers"  && <Transfers wallet={wallet} />}
         {page === "loans"      && <Loans     wallet={wallet} />}
+        {page === "league"    && <League    wallet={wallet} />}
       </main>
       <Footer />
     </div>
@@ -27,11 +32,25 @@ export default function App() {
 }
 
 function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void; wallet: ReturnType<typeof useWallet> }) {
+  const [isRegistrar, setIsRegistrar] = useState(false);
+
+  useEffect(() => {
+    if (!wallet.provider || !wallet.address) { setIsRegistrar(false); return; }
+    (async () => {
+      try {
+        const registry       = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider!);
+        const REGISTRAR_ROLE = await registry.REGISTRAR_ROLE();
+        setIsRegistrar(await registry.hasRole(REGISTRAR_ROLE, wallet.address));
+      } catch {}
+    })();
+  }, [wallet.provider, wallet.address]);
+
   const navItems: { key: Page; label: string }[] = [
     { key: "dashboard", label: "Overview"  },
     { key: "players",   label: "Players"   },
     { key: "transfers", label: "Transfers" },
     { key: "loans",     label: "Loans"     },
+    ...(isRegistrar ? [{ key: "league" as Page, label: "League" }] : []),
   ];
 
   return (
