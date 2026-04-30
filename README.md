@@ -1,73 +1,77 @@
-# React + TypeScript + Vite
+# Transferium Protocol — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The web interface for Transferium Protocol — a decentralised football player transfer and loan system built on Arc Testnet.
 
-Currently, two official plugins are available:
+## Live App
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Deployed on Arc Testnet (Chain ID 5042002). Connect with MetaMask or Rabby wallet.
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Overview (Dashboard)
+- Live transfer window status
+- Protocol statistics — total players, active transfers, open loans
+- EURC balance display
 
-## Expanding the ESLint configuration
+### Players
+- Register new players with position and nationality dropdowns
+- Full registrar compliance pipeline:
+  - Step 1: Player identity verification
+  - Step 2: Medical clearance (document hash)
+  - Step 3: Legal documents (registration contract, identity, FIFA TMS, work permit)
+  - Step 4: Player wallet assignment
+- List and delist players during open transfer windows
+- Document hash uniqueness enforced on-chain — no reuse across players
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Transfers
+- Browse listed players on the transfer market
+- Create transfer deals with configurable:
+  - Transfer fee (EURC/USDC)
+  - Agent fee percentage
+  - Sell-on clause percentage
+  - Performance add-ons
+  - Salary guarantee
+- Approve, reject, and claim transfer funds
+- League queue for multi-club deals
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Loans
+- Loan deal creation and management (in development)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### League (Registrar Only)
+- Grant and revoke CLUB_ROLE to club wallets
+- Lookup wallet role status
+- Full access control managed on-chain
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Tech Stack
+
+- React + TypeScript
+- Vite
+- ethers.js v6
+- Arc Testnet (Chain ID 5042002)
+- Rabby / MetaMask wallet support
+
+## Smart Contracts
+
+| Contract | Address |
+|---|---|
+| PlayerRegistry | `0xdDa83cf2ADECD861Cc6aa947E167E29906BB77Ef` |
+| TransferWindow | `0xcEDd544E087a670CcD4bBe0437F80BB6C8f837a4` |
+| TransferEscrow | `0xa92C0648d97455D11713487FE6a1B784f74cB94A` |
+| LoanEscrow | `0x2a0F089674ff1Eb1C035C19d61d4bfCc0360e9fC` |
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Connect your wallet to Arc Testnet (Chain ID 5042002, RPC: https://rpc.testnet.arc.network).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Smart Contract Repository
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+[github.com/Twilite7/transferium-contracts](https://github.com/Twilite7/transferium-contracts)
+
+---
+
+*Built on Arc Testnet. Security over speed. Always.*
