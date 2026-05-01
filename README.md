@@ -1,56 +1,26 @@
-# Transferium Protocol — Frontend
+# Transferium — Frontend
 
-The web interface for Transferium Protocol — a decentralised football player transfer and loan system built on Arc Testnet.
+Web interface for Transferium Protocol. Connect with MetaMask or Rabby on Arc Testnet (Chain ID 5042002).
 
-## Live App
+Built this after the contracts were done. Kept it simple and functional — the goal was to prove the protocol works end to end, not win a design award.
 
-Deployed on Arc Testnet (Chain ID 5042002). Connect with MetaMask or Rabby wallet.
+## Pages
 
-## Features
+**Overview** — Window status, protocol stats, EURC balance.
 
-### Overview (Dashboard)
-- Live transfer window status
-- Protocol statistics — total players, active transfers, open loans
-- EURC balance display
+**Players** — Register players, run them through the full compliance pipeline (verification, medical, legal docs, player wallet), list and delist during open windows.
 
-### Players
-- Register new players with position and nationality dropdowns
-- Full registrar compliance pipeline:
-  - Step 1: Player identity verification
-  - Step 2: Medical clearance (document hash)
-  - Step 3: Legal documents (registration contract, identity, FIFA TMS, work permit)
-  - Step 4: Player wallet assignment
-- List and delist players during open transfer windows
-- Document hash uniqueness enforced on-chain — no reuse across players
+**Transfers** — Browse the market, create deals with full fee structure, approve/reject, claim funds.
 
-### Transfers
-- Browse listed players on the transfer market
-- Create transfer deals with configurable:
-  - Transfer fee (EURC/USDC)
-  - Agent fee percentage
-  - Sell-on clause percentage
-  - Performance add-ons
-  - Salary guarantee
-- Approve, reject, and claim transfer funds
-- League queue for multi-club deals
+**Loans** — In progress.
 
-### Loans
-- Loan deal creation and management (in development)
+**League** — Registrar-only. Grant and revoke club access on-chain.
 
-### League (Registrar Only)
-- Grant and revoke CLUB_ROLE to club wallets
-- Lookup wallet role status
-- Full access control managed on-chain
+## Stack
 
-## Tech Stack
+React, TypeScript, Vite, ethers.js v6, Arc Testnet
 
-- React + TypeScript
-- Vite
-- ethers.js v6
-- Arc Testnet (Chain ID 5042002)
-- Rabby / MetaMask wallet support
-
-## Smart Contracts
+## Contracts
 
 | Contract | Address |
 |---|---|
@@ -59,19 +29,17 @@ Deployed on Arc Testnet (Chain ID 5042002). Connect with MetaMask or Rabby walle
 | TransferEscrow | `0xa92C0648d97455D11713487FE6a1B784f74cB94A` |
 | LoanEscrow | `0x2a0F089674ff1Eb1C035C19d61d4bfCc0360e9fC` |
 
-## Getting Started
+## Run Locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Connect your wallet to Arc Testnet (Chain ID 5042002, RPC: https://rpc.testnet.arc.network).
+Add Arc Testnet to your wallet: Chain ID 5042002, RPC https://rpc.testnet.arc.network
 
-## Smart Contract Repository
-
-[github.com/Twilite7/transferium-contracts](https://github.com/Twilite7/transferium-contracts)
+Contracts repo: [github.com/Twilite7/transferium-contracts](https://github.com/Twilite7/transferium-contracts)
 
 ---
 
-*Built on Arc Testnet. Security over speed. Always.*
+Security over speed. Always.
