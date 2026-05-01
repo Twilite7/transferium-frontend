@@ -1,3 +1,5 @@
+> **Status:** Actively in development. Players and Transfers pages are working. Loans page is still being built. Contracts are fully deployed on Arc Testnet.
+
 # Transferium — Frontend
 
 Web interface for Transferium Protocol. Connect with MetaMask or Rabby on Arc Testnet (Chain ID 5042002).
