@@ -7,10 +7,11 @@ import { Dashboard } from "./pages/Dashboard";
 import { Players }   from "./pages/Players";
 import { Transfers } from "./pages/Transfers";
 import { Loans }     from "./pages/Loans";
-import { League }    from "./pages/League";
+import { League }       from "./pages/League";
+import { PlayerPortal } from "./pages/PlayerPortal";
 import "./index.css";
 
-type Page = "dashboard" | "players" | "transfers" | "loans" | "league";
+type Page = "dashboard" | "players" | "transfers" | "loans" | "league" | "portal";
 
 export default function App() {
   const [page, setPage] = useState<Page>("dashboard");
@@ -25,6 +26,7 @@ export default function App() {
         {page === "transfers"  && <Transfers wallet={wallet} />}
         {page === "loans"      && <Loans     wallet={wallet} />}
         {page === "league"    && <League    wallet={wallet} />}
+        {page === "portal"    && <PlayerPortal wallet={wallet} />}
       </main>
       <Footer />
     </div>
@@ -50,6 +52,7 @@ function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void
     { key: "players",   label: "Players"   },
     { key: "transfers", label: "Transfers" },
     { key: "loans",     label: "Loans"     },
+    { key: "portal",    label: "Player"    },
     ...(isRegistrar ? [{ key: "league" as Page, label: "League" }] : []),
   ];
 
