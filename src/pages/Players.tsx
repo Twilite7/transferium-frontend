@@ -6,6 +6,8 @@ import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
 import { PLAYER_REGISTRY_ABI } from "../config/abis";
 import { RegistrarPanel } from "../components/RegistrarPanel";
+import { uploadPortrait } from "../utils/pinata";
+import { ipfsUrl } from "../config/contracts";
 
 interface Player {
   id:                  bigint;
@@ -22,6 +24,7 @@ interface Player {
   askingPrice:         bigint;
   releaseClause:       bigint;
   registeredAt:        bigint;
+  portraitCID:         string;
   _owner?:             string;
   _legalDocs?:         { documentsVerified: boolean; registrationContractHash: string; };
 }
@@ -59,6 +62,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [isRegistrar, setIsRegistrar]   = useState(false);
   const [listingId, setListingId]       = useState<bigint | null>(null);
   const [listingPrice, setListingPrice] = useState("");
+  const [uploadingPortrait, setUploadingPortrait] = useState<bigint | null>(null);
   const [form, setForm] = useState({
     name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: ""
   });
@@ -106,6 +110,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             askingPrice:         raw.askingPrice,
             releaseClause:       raw.releaseClause,
             registeredAt:        raw.registeredAt,
+            portraitCID:         raw.portraitCID ?? "",
             _owner:              owner,
             _legalDocs:          {
               documentsVerified:        legalRaw.documentsVerified,
@@ -119,6 +124,21 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setError(err.message ?? "Failed to load players");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePortraitUpload(playerId: bigint, file: File) {
+    if (!wallet.signer) return;
+    setTxStatus(`Uploading portrait for #${playerId}...`);
+    try {
+      const cid      = await uploadPortrait(file);
+      setTxStatus(`Pinned to IPFS. Saving on-chain...`);
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.setPortrait(playerId, cid), wallet.provider!);
+      setTxStatus(`Portrait updated for #${playerId}.`);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
     }
   }
 
@@ -506,6 +526,19 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           )}
                           {isMyPlayer(p) && p.isListed && (
                             <button onClick={() => delistPlayer(p.id)} style={btn("var(--red)")}>DELIST</button>
+                          )}
+                          {isMyPlayer(p) && (
+                            <label title="Upload portrait to IPFS" style={{ cursor: "pointer" }}>
+                              {p.portraitCID ? (
+                                <img src={ipfsUrl(p.portraitCID)} alt={p.name}
+                                  style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border-accent)" }} />
+                              ) : (
+                                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", border: "1px dashed var(--border)", padding: "3px 6px", borderRadius: "var(--radius-sm)" }}>PHOTO</span>
+                              )}
+                              <input type="file" accept="image/*" style={{ display: "none" }}
+                                onChange={e => { const f = e.target.files?.[0]; if (f) handlePortraitUpload(p.id, f); e.target.value = ""; }}
+                              />
+                            </label>
                           )}
                         </div>
                       </td>
