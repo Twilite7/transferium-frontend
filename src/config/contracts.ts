@@ -37,7 +37,7 @@ export const CONTRACT_ADDRESSES = {
 } as const
 
 // ─── EURC token address on Arc testnet ───────────────────────────────────────
-export const EURC_ADDRESS = '0x0000000000000000000000000000000000000000' // update when deployed
+export const EURC_ADDRESS = '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a' // EURC on Arc testnet
 
 // ─── Contract config objects for wagmi hooks (address + abi) ─────────────────
 export const playerRegistryContract = {

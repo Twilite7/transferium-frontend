@@ -340,7 +340,6 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
   }
 
   const isBuyer  = (d: Deal) => d.buyingClub.toLowerCase()  === wallet.address?.toLowerCase()
-  const isSeller = (d: Deal) => d.sellingClub.toLowerCase() === wallet.address?.toLowerCase()
   const isExpired = (d: Deal) => d.stateDeadline > 0n && BigInt(Math.floor(Date.now() / 1000)) > d.stateDeadline
 
   const TabBtn = ({ t, label }: { t: typeof tab; label: string }) => (
@@ -397,7 +396,6 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                   {listedPlayers.map(p => {
                     const isOwn = p.currentClub.toLowerCase() === wallet.address?.toLowerCase()
                     const sel   = selectedPlayer?.id === p.id
-                    const _bidSel = selectedOffer === null && !isOwn
                     return (
                       <div key={p.id.toString()} style={{ background: "var(--bg-card)", border: `1px solid ${sel ? "var(--gold)" : "var(--border)"}`, borderRadius: "var(--radius-lg)", padding: "1.25rem 1.5rem", transition: "border-color 0.15s" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>

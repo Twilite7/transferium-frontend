@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS, EURC_ADDRESS } from "../config/contracts";
-import { PLAYER_REGISTRY_ABI, TRANSFER_ESCROW_ABI, DEAL_ESCROW_ABI, TRANSFER_WINDOW_ABI, ERC20_ABI } from "../config/abis";
+import { PLAYER_REGISTRY_ABI, DEAL_ESCROW_ABI, TRANSFER_WINDOW_ABI, ERC20_ABI } from "../config/abis";
 
 interface Stats {
   totalPlayers: string;
