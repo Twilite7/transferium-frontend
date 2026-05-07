@@ -17,7 +17,7 @@ export const arc = defineChain({
 
 export const wagmiConfig = getDefaultConfig({
   appName: 'Transferium',
-  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ?? 'transferium',
+  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string,
   chains: [arc],
   ssr: false,
 })
