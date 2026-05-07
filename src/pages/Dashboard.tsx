@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS, EURC_ADDRESS } from "../config/contracts";
-import { PLAYER_REGISTRY_ABI, TRANSFER_ESCROW_ABI, TRANSFER_WINDOW_ABI, ERC20_ABI } from "../config/abis";
+import { PLAYER_REGISTRY_ABI, TRANSFER_ESCROW_ABI, DEAL_ESCROW_ABI, TRANSFER_WINDOW_ABI, ERC20_ABI } from "../config/abis";
 
 interface Stats {
   totalPlayers: string;
@@ -27,13 +27,14 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
     if (!wallet.provider) return;
     setLoading(true);
     try {
-      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
-      const escrow   = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.provider);
-      const win      = new ethers.Contract(CONTRACTS.TransferWindow,  TRANSFER_WINDOW_ABI, wallet.provider);
+      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
+      const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow,     DEAL_ESCROW_ABI,     wallet.provider);
+      const win        = new ethers.Contract(CONTRACTS.TransferWindow,  TRANSFER_WINDOW_ABI, wallet.provider);
 
+      // I pull totalDeals from DealEscrow — TransferEscrow owns offers, DealEscrow owns deals
       const [totalPlayers, totalDeals, windowOpen] = await Promise.all([
         registry.totalPlayers(),
-        escrow.totalDeals(),
+        dealEscrow.totalDeals(),
         win.isWindowOpen(),
       ]);
 
@@ -51,7 +52,7 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
         const eurc = new ethers.Contract(EURC_ADDRESS, ERC20_ABI, wallet.provider);
         const [bal, claim] = await Promise.all([
           eurc.balanceOf(wallet.address),
-          escrow.getClaimable(wallet.address, EURC_ADDRESS),
+          dealEscrow.getClaimable(wallet.address, EURC_ADDRESS),
         ]);
         eurcBalance = (Number(bal)   / 1e6).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         claimable   = (Number(claim) / 1e6).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

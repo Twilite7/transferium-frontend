@@ -129,8 +129,10 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
       const expiry   = Math.floor(new Date(form.contractExpiry).getTime() / 1000) + 86400;
       const salary   = form.weeklySalary ? ethers.parseUnits(form.weeklySalary, 6) : 0n;
+      // I pass portraitCID as empty string — club can update via setPortrait after registration
+      const regFee   = await registry.registrationFee();
       const tx       = await registry.registerPlayer(
-        form.name, form.position, form.nationality, expiry, salary, { value: 0n }
+        form.name, form.position, form.nationality, expiry, salary, "", { value: regFee }
       );
       setTxStatus("Waiting for confirmation...");
       await waitForTx(tx, wallet.provider!);
