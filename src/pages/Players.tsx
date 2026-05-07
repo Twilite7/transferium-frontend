@@ -62,7 +62,6 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [isRegistrar, setIsRegistrar]   = useState(false);
   const [listingId, setListingId]       = useState<bigint | null>(null);
   const [listingPrice, setListingPrice] = useState("");
-  const [uploadingPortrait, setUploadingPortrait] = useState<bigint | null>(null);
   const [form, setForm] = useState({
     name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: ""
   });
