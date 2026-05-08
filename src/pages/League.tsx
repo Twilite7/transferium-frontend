@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
-import { PLAYER_REGISTRY_ABI } from "../config/abis";
+import { PLAYER_REGISTRY_ABI, TRANSFER_ESCROW_ABI, DEAL_ESCROW_ABI, LOAN_ESCROW_ABI } from "../config/abis";
 import { parseError } from "../utils/parseError";
 import { waitForTx } from "../utils/waitForTx";
 
@@ -60,13 +60,26 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   async function grantClubRole() {
     if (!wallet.signer || !clubAddress) return;
     try { ethers.getAddress(clubAddress); } catch { setStatus("Invalid wallet address."); return; }
-    setStatus("Granting club access...");
+    setStatus("Granting club access on all contracts...");
     try {
-      const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      const CLUB_ROLE = await registry.CLUB_ROLE();
-      const tx        = await registry.grantRole(CLUB_ROLE, clubAddress);
-      await waitForTx(tx, wallet.provider!);
-      setStatus("Club access granted successfully.");
+      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      const escrow     = new ethers.Contract(CONTRACTS.TransferEscrow,  TRANSFER_ESCROW_ABI, wallet.signer);
+      const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow,      DEAL_ESCROW_ABI,     wallet.signer);
+      const loanEscrow = new ethers.Contract(CONTRACTS.LoanEscrow,      LOAN_ESCROW_ABI,     wallet.signer);
+      const CLUB_ROLE  = await registry.CLUB_ROLE();
+
+      // I grant on all four contracts sequentially — a club needs access everywhere
+      setStatus("1/4 PlayerRegistry...");
+      await waitForTx(await registry.grantRole(CLUB_ROLE, clubAddress), wallet.provider!);
+      setStatus("2/4 TransferEscrow...");
+      await waitForTx(await escrow.grantRole(CLUB_ROLE, clubAddress), wallet.provider!);
+      setStatus("3/4 LoanEscrow...");
+      await waitForTx(await loanEscrow.grantRole(CLUB_ROLE, clubAddress), wallet.provider!);
+
+      // DealEscrow uses LEAGUE_ROLE not CLUB_ROLE for admin, but clubs don't need a role there
+      // — they interact through TransferEscrow which holds TRANSFER_ESCROW_ROLE on DealEscrow
+
+      setStatus("Club access granted on all contracts.");
       setClubs(prev => [...prev.filter(c => c.address.toLowerCase() !== clubAddress.toLowerCase()), { address: clubAddress, hasRole: true }]);
       setClubAddress("");
     } catch (err: any) {
@@ -78,11 +91,14 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     if (!wallet.signer) return;
     setStatus("Revoking club access...");
     try {
-      const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      const CLUB_ROLE = await registry.CLUB_ROLE();
-      const tx        = await registry.revokeRole(CLUB_ROLE, address);
-      await waitForTx(tx, wallet.provider!);
-      setStatus("Club access revoked.");
+      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      const escrow     = new ethers.Contract(CONTRACTS.TransferEscrow,  TRANSFER_ESCROW_ABI, wallet.signer);
+      const loanEscrow = new ethers.Contract(CONTRACTS.LoanEscrow,      LOAN_ESCROW_ABI,     wallet.signer);
+      const CLUB_ROLE  = await registry.CLUB_ROLE();
+      await waitForTx(await registry.revokeRole(CLUB_ROLE, address),   wallet.provider!);
+      await waitForTx(await escrow.revokeRole(CLUB_ROLE, address),     wallet.provider!);
+      await waitForTx(await loanEscrow.revokeRole(CLUB_ROLE, address), wallet.provider!);
+      setStatus("Club access revoked on all contracts.");
       setClubs(prev => prev.map(c => c.address.toLowerCase() === address.toLowerCase() ? { ...c, hasRole: false } : c));
     } catch (err: any) {
       setStatus(parseError(err));
@@ -95,9 +111,17 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     setChecking(true);
     setStatus(null);
     try {
-      const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider!);
-      const CLUB_ROLE = await registry.CLUB_ROLE();
-      const hasRole   = await registry.hasRole(CLUB_ROLE, clubAddress);
+      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider!);
+      const escrow     = new ethers.Contract(CONTRACTS.TransferEscrow,  TRANSFER_ESCROW_ABI, wallet.provider!);
+      const loanEscrow = new ethers.Contract(CONTRACTS.LoanEscrow,      LOAN_ESCROW_ABI,     wallet.provider!);
+      const CLUB_ROLE  = await registry.CLUB_ROLE();
+      const [r, e, l]  = await Promise.all([
+        registry.hasRole(CLUB_ROLE, clubAddress),
+        escrow.hasRole(CLUB_ROLE, clubAddress),
+        loanEscrow.hasRole(CLUB_ROLE, clubAddress),
+      ]);
+      // I consider a club fully active only if it has the role on all three
+      const hasRole = r && e && l;
       setClubs(prev => [...prev.filter(c => c.address.toLowerCase() !== clubAddress.toLowerCase()), { address: clubAddress, hasRole }]);
     } catch (err: any) {
       setStatus(parseError(err));
