@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
-import { PLAYER_REGISTRY_ABI, TRANSFER_ESCROW_ABI, DEAL_ESCROW_ABI, LOAN_ESCROW_ABI } from "../config/abis";
+import { PLAYER_REGISTRY_ABI, TRANSFER_ESCROW_ABI, LOAN_ESCROW_ABI } from "../config/abis";
 import { parseError } from "../utils/parseError";
 import { waitForTx } from "../utils/waitForTx";
 
@@ -64,7 +64,6 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     try {
       const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
       const escrow     = new ethers.Contract(CONTRACTS.TransferEscrow,  TRANSFER_ESCROW_ABI, wallet.signer);
-      const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow,      DEAL_ESCROW_ABI,     wallet.signer);
       const loanEscrow = new ethers.Contract(CONTRACTS.LoanEscrow,      LOAN_ESCROW_ABI,     wallet.signer);
       const CLUB_ROLE  = await registry.CLUB_ROLE();
 
