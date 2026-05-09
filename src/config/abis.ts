@@ -23,7 +23,6 @@ export const PLAYER_REGISTRY_ABI = [
   "function hasRole(bytes32 role, address account) external view returns (bool)",
   "function grantRole(bytes32 role, address account) external",
   "function revokeRole(bytes32 role, address account) external",
-  "function revokeRole(bytes32 role, address account) external",
   "function CLUB_ROLE() external view returns (bytes32)",
   "function REGISTRAR_ROLE() external view returns (bytes32)",
   "function ownerOf(uint256 tokenId) external view returns (address)",
@@ -98,6 +97,8 @@ export const DEAL_ESCROW_ABI = [
   "function getAddOnDeposit(uint256 dealId, address token) external view returns (uint256)",
   "function totalDeals() external view returns (uint256)",
   "function hasRole(bytes32 role, address account) external view returns (bool)",
+  "function grantRole(bytes32 role, address account) external",
+  "function revokeRole(bytes32 role, address account) external",
   "function LEAGUE_ROLE() external view returns (bytes32)",
   "function approveToken(address token) external",
   "function setProtocolFee(uint256 bps) external",
@@ -121,6 +122,8 @@ export const LOAN_ESCROW_ABI = [
   "function hasRole(bytes32 role, address account) external view returns (bool)",
   "function LEAGUE_ROLE() external view returns (bytes32)",
   "function CLUB_ROLE() external view returns (bytes32)",
+  "function grantRole(bytes32 role, address account) external",
+  "function revokeRole(bytes32 role, address account) external",
 ] as const
 
 export const TRANSFER_WINDOW_ABI = [
