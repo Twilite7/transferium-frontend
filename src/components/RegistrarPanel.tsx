@@ -80,36 +80,10 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
   const [permitHash, setPermitHash]     = useState("");
   const [playerWallet, setPlayerWallet] = useState("");
   const [expanded, setExpanded]         = useState<string | null>(null);
-  const [grantAddress, setGrantAddress]   = useState("");
-  const [revokeAddress, setRevokeAddress] = useState("");
 
   function getRegistry() {
     if (!wallet.signer) throw new Error("Wallet not connected");
     return new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-  }
-
-  async function grantClubRole() {
-    if (!isValidAddress(grantAddress)) { setStatus("Invalid address."); return; }
-    setStatus("Granting CLUB_ROLE...");
-    try {
-      const registry  = getRegistry();
-      const CLUB_ROLE = await registry.CLUB_ROLE();
-      await waitForTx(await registry.grantRole(CLUB_ROLE, grantAddress), wallet.provider!);
-      setStatus(`CLUB_ROLE granted to ${grantAddress.slice(0,10)}...`);
-      setGrantAddress("");
-    } catch (err: any) { setStatus(parseError(err)); }
-  }
-
-  async function revokeClubRole() {
-    if (!isValidAddress(revokeAddress)) { setStatus("Invalid address."); return; }
-    setStatus("Revoking CLUB_ROLE...");
-    try {
-      const registry  = getRegistry();
-      const CLUB_ROLE = await registry.CLUB_ROLE();
-      await waitForTx(await registry.revokeRole(CLUB_ROLE, revokeAddress), wallet.provider!);
-      setStatus(`CLUB_ROLE revoked from ${revokeAddress.slice(0,10)}...`);
-      setRevokeAddress("");
-    } catch (err: any) { setStatus(parseError(err)); }
   }
 
   async function verifyPlayer() {
