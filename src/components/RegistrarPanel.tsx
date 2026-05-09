@@ -214,39 +214,6 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
         REGISTRAR ACTIONS — PLAYER #{playerId.toString()}
       </p>
 
-      <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "0.75rem" }}>
-            CLUB ROLE MANAGEMENT
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.5rem", alignItems: "end", marginBottom: "0.5rem" }}>
-            <div>
-              <span style={labelStyle}>GRANT CLUB_ROLE TO ADDRESS</span>
-              <input type="text" placeholder="0x..." value={grantAddress}
-                onChange={e => setGrantAddress(e.target.value.trim())}
-                style={{ ...input, borderColor: grantAddress && !isValidAddress(grantAddress) ? "var(--red)" : "var(--border)" }}
-              />
-            </div>
-            <button onClick={grantClubRole} disabled={!isValidAddress(grantAddress)}
-              style={btn("var(--green)", "rgba(45,206,137,0.08)", !isValidAddress(grantAddress))}>
-              GRANT
-            </button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.5rem", alignItems: "end" }}>
-            <div>
-              <span style={labelStyle}>REVOKE CLUB_ROLE FROM ADDRESS</span>
-              <input type="text" placeholder="0x..." value={revokeAddress}
-                onChange={e => setRevokeAddress(e.target.value.trim())}
-                style={{ ...input, borderColor: revokeAddress && !isValidAddress(revokeAddress) ? "var(--red)" : "var(--border)" }}
-              />
-            </div>
-            <button onClick={revokeClubRole} disabled={!isValidAddress(revokeAddress)}
-              style={btn("var(--red)", "transparent", !isValidAddress(revokeAddress))}>
-              REVOKE
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 1 — Verify player */}
       <div style={sectionStyle("verify")}>
         {sectionHeader("verify", "Step 1: Player Verification", player.isVerified)}
         {!player.isVerified && expanded === "verify" && (
@@ -261,7 +228,6 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
         )}
       </div>
 
-      {/* Step 2 — Medical clearance */}
       <div style={sectionStyle("medical")}>
         {sectionHeader("medical", "Step 2: Medical Clearance", player.medicalClearance)}
         {!player.medicalClearance && expanded === "medical" && (
@@ -294,7 +260,6 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
         )}
       </div>
 
-      {/* Step 3 — Legal documents */}
       <div style={sectionStyle("legal")}>
         {sectionHeader("legal", "Step 3: Legal Documents", legalDocs.documentsVerified)}
         {!legalDocs.documentsVerified && expanded === "legal" && (
@@ -350,7 +315,6 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
         )}
       </div>
 
-      {/* Step 4 — Player wallet */}
       <div style={sectionStyle("wallet")}>
         {sectionHeader("wallet", "Step 4: Player Wallet", player.playerWallet !== ethers.ZeroAddress)}
         {player.playerWallet === ethers.ZeroAddress && expanded === "wallet" && (
