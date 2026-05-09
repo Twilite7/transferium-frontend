@@ -23,6 +23,7 @@ export const PLAYER_REGISTRY_ABI = [
   "function hasRole(bytes32 role, address account) external view returns (bool)",
   "function grantRole(bytes32 role, address account) external",
   "function revokeRole(bytes32 role, address account) external",
+  "function revokeRole(bytes32 role, address account) external",
   "function CLUB_ROLE() external view returns (bytes32)",
   "function REGISTRAR_ROLE() external view returns (bytes32)",
   "function ownerOf(uint256 tokenId) external view returns (address)",

@@ -80,10 +80,36 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
   const [permitHash, setPermitHash]     = useState("");
   const [playerWallet, setPlayerWallet] = useState("");
   const [expanded, setExpanded]         = useState<string | null>(null);
+  const [grantAddress, setGrantAddress]   = useState("");
+  const [revokeAddress, setRevokeAddress] = useState("");
 
   function getRegistry() {
     if (!wallet.signer) throw new Error("Wallet not connected");
     return new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+  }
+
+  async function grantClubRole() {
+    if (!isValidAddress(grantAddress)) { setStatus("Invalid address."); return; }
+    setStatus("Granting CLUB_ROLE...");
+    try {
+      const registry  = getRegistry();
+      const CLUB_ROLE = await registry.CLUB_ROLE();
+      await waitForTx(await registry.grantRole(CLUB_ROLE, grantAddress), wallet.provider!);
+      setStatus(`CLUB_ROLE granted to ${grantAddress.slice(0,10)}...`);
+      setGrantAddress("");
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function revokeClubRole() {
+    if (!isValidAddress(revokeAddress)) { setStatus("Invalid address."); return; }
+    setStatus("Revoking CLUB_ROLE...");
+    try {
+      const registry  = getRegistry();
+      const CLUB_ROLE = await registry.CLUB_ROLE();
+      await waitForTx(await registry.revokeRole(CLUB_ROLE, revokeAddress), wallet.provider!);
+      setStatus(`CLUB_ROLE revoked from ${revokeAddress.slice(0,10)}...`);
+      setRevokeAddress("");
+    } catch (err: any) { setStatus(parseError(err)); }
   }
 
   async function verifyPlayer() {
@@ -213,6 +239,41 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
       <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--gold)", letterSpacing: "0.1em", marginBottom: "0.75rem" }}>
         REGISTRAR ACTIONS — PLAYER #{playerId.toString()}
       </p>
+
+      {/* Club Role Management — shown once, not per-player */}
+      {playerId === 1n && (
+        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", marginBottom: "1rem", padding: "0.75rem 1rem" }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "0.75rem" }}>
+            CLUB ROLE MANAGEMENT
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.5rem", alignItems: "end", marginBottom: "0.5rem" }}>
+            <div>
+              <span style={labelStyle}>GRANT CLUB_ROLE TO ADDRESS</span>
+              <input type="text" placeholder="0x..." value={grantAddress}
+                onChange={e => setGrantAddress(e.target.value.trim())}
+                style={{ ...input, borderColor: grantAddress && !isValidAddress(grantAddress) ? "var(--red)" : "var(--border)" }}
+              />
+            </div>
+            <button onClick={grantClubRole} disabled={!isValidAddress(grantAddress)}
+              style={btn("var(--green)", "rgba(45,206,137,0.08)", !isValidAddress(grantAddress))}>
+              GRANT
+            </button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.5rem", alignItems: "end" }}>
+            <div>
+              <span style={labelStyle}>REVOKE CLUB_ROLE FROM ADDRESS</span>
+              <input type="text" placeholder="0x..." value={revokeAddress}
+                onChange={e => setRevokeAddress(e.target.value.trim())}
+                style={{ ...input, borderColor: revokeAddress && !isValidAddress(revokeAddress) ? "var(--red)" : "var(--border)" }}
+              />
+            </div>
+            <button onClick={revokeClubRole} disabled={!isValidAddress(revokeAddress)}
+              style={btn("var(--red)", "transparent", !isValidAddress(revokeAddress))}>
+              REVOKE
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Step 1 — Verify player */}
       <div style={sectionStyle("verify")}>
