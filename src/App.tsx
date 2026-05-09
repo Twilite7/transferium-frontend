@@ -5,7 +5,7 @@ import { PLAYER_REGISTRY_ABI } from "./config/abis";
 import { useWallet } from "./hooks/useWallet";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Dashboard } from "./pages/Dashboard";
-import { Players }   from "./pages/Players";
+import { Club }     from "./pages/Club";
 import { Transfers } from "./pages/Transfers";
 import { Loans }     from "./pages/Loans";
 import { League }       from "./pages/League";
@@ -23,7 +23,7 @@ export default function App() {
       <Nav page={page} setPage={setPage} wallet={wallet} />
       <main style={{ flex: 1, padding: "2rem", maxWidth: "1400px", margin: "0 auto", width: "100%" }}>
         {page === "dashboard"  && <Dashboard wallet={wallet} />}
-        {page === "players"    && <Players   wallet={wallet} />}
+        {page === "players"    && <Club       wallet={wallet} />}
         {page === "transfers"  && <Transfers wallet={wallet} />}
         {page === "loans"      && <Loans     wallet={wallet} />}
         {page === "league"    && <League    wallet={wallet} />}
@@ -50,7 +50,7 @@ function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void
 
   const navItems: { key: Page; label: string }[] = [
     { key: "dashboard", label: "Overview"  },
-    { key: "players",   label: "Players"   },
+    { key: "players",   label: "Club"      },
     { key: "transfers", label: "Transfers" },
     { key: "loans",     label: "Loans"     },
     { key: "portal",    label: "Player"    },
