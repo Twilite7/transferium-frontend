@@ -513,7 +513,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
               </tr>
             </thead>
             <tbody>
-              {players.map((p, i) => {
+              {players.filter(isMyPlayer).map((p, i) => {
                 const status     = statusLabel(p);
                 const isLast     = i === players.length - 1;
                 const showBorder = !isLast || isRegistrar;
