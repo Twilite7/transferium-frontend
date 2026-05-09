@@ -82,6 +82,7 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setClubs(prev => [...prev.filter(c => c.address.toLowerCase() !== clubAddress.toLowerCase()), { address: clubAddress, hasRole: true }]);
       setClubAddress("");
     } catch (err: any) {
+      console.error("grantClubRole error:", err);
       setStatus(parseError(err));
     }
   }
@@ -100,6 +101,7 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setStatus("Club access revoked on all contracts.");
       setClubs(prev => prev.map(c => c.address.toLowerCase() === address.toLowerCase() ? { ...c, hasRole: false } : c));
     } catch (err: any) {
+      console.error("revokeClubRole error:", err);
       setStatus(parseError(err));
     }
   }
@@ -123,6 +125,7 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const hasRole = r && e && l;
       setClubs(prev => [...prev.filter(c => c.address.toLowerCase() !== clubAddress.toLowerCase()), { address: clubAddress, hasRole }]);
     } catch (err: any) {
+      console.error("lookupAddress error:", err);
       setStatus(parseError(err));
     } finally {
       setChecking(false);
