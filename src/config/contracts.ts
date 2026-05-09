@@ -10,7 +10,7 @@ import ReleaseEscrowABI  from './ReleaseEscrow.json'
 export const ARC_TESTNET = {
   chainId:         9998,
   name:            'Arc Testnet',
-  rpcUrl:          'https://rpc.testnet.arc.network',
+  rpcUrl:          'https://rpc.testnet.arc.network/v1',
   explorer:        'https://explorer.testnet.arc.network',
   currency:        { name: 'ARC', symbol: 'ARC', decimals: 18 },
 } as const
