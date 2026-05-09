@@ -53,7 +53,7 @@ export function useWallet() {
     if (!window.ethereum) return;
     const chainHex = `0x${ARC_TESTNET.chainId.toString(16)}`;
     const addChain = async () => {
-      await window.ethereum.request({
+      await window.ethereum!.request({
         method: "wallet_addEthereumChain",
         params: [{
           chainId:           chainHex,
