@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { CONTRACTS } from "./config/contracts";
 import { PLAYER_REGISTRY_ABI } from "./config/abis";
 import { useWallet } from "./hooks/useWallet";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Dashboard } from "./pages/Dashboard";
 import { Players }   from "./pages/Players";
 import { Transfers } from "./pages/Transfers";
@@ -83,29 +84,7 @@ function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void
       </nav>
 
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        {wallet.isConnected && !wallet.isCorrectNetwork && (
-          <button
-            onClick={() => wallet.switchNetwork()}
-            style={{ background: "transparent", border: "1px solid var(--amber)", color: "var(--amber)", fontFamily: "var(--font-mono)", fontSize: "0.7rem", padding: "5px 12px", borderRadius: "var(--radius-sm)", cursor: "pointer", pointerEvents: "all", position: "relative", zIndex: 200 }}>
-            SWITCH NETWORK
-          </button>
-        )}
-        <button
-          onClick={wallet.isConnected ? wallet.disconnect : wallet.connect}
-          disabled={wallet.isConnecting}
-          style={{
-            background:    wallet.isConnected ? "transparent" : "var(--gold)",
-            border:        wallet.isConnected ? "1px solid var(--border-accent)" : "none",
-            color:         wallet.isConnected ? "var(--text-secondary)" : "var(--bg-primary)",
-            fontFamily:    "var(--font-mono)",
-            fontSize:      "0.75rem",
-            letterSpacing: "0.06em",
-            padding:       "6px 16px",
-            borderRadius:  "var(--radius-sm)",
-            cursor:        wallet.isConnecting ? "wait" : "pointer",
-          }}>
-          {wallet.isConnecting ? "CONNECTING..." : wallet.isConnected ? `${wallet.address?.slice(0,6)}...${wallet.address?.slice(-4)}` : "CONNECT WALLET"}
-        </button>
+        <ConnectButton />
       </div>
     </header>
   );
