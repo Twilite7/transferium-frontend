@@ -81,6 +81,21 @@ export function useWallet() {
     }
   }, []);
 
+  // I auto-connect on mount if a wallet is already connected (e.g. via RainbowKit)
+  useEffect(() => {
+    if (!window.ethereum) return;
+    window.ethereum.request({ method: "eth_accounts" }).then(async (accounts: string[]) => {
+      if (accounts.length > 0) {
+        const provider = new ethers.BrowserProvider(window.ethereum!);
+        const signer   = await provider.getSigner();
+        const address  = await signer.getAddress();
+        const network  = await provider.getNetwork();
+        const chainId  = Number(network.chainId);
+        setState({ address, provider, signer, chainId, isConnected: true, isCorrectNetwork: chainId === ARC_TESTNET.chainId });
+      }
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!window.ethereum) return;
     const handleAccountsChanged = (accounts: string[]) => {
