@@ -61,10 +61,15 @@ export function useWallet() {
         await window.ethereum.request({
           method: "wallet_addEthereumChain",
           params: [{
-            chainId:        `0x${ARC_TESTNET.chainId.toString(16)}`,
-            chainName:      ARC_TESTNET.name,
-            rpcUrls:        [ARC_TESTNET.rpcUrl],
-            nativeCurrency: { name: ARC_TESTNET.currency, symbol: ARC_TESTNET.currency, decimals: 18 },
+            chainId:         `0x${ARC_TESTNET.chainId.toString(16)}`,
+            chainName:       ARC_TESTNET.name,
+            rpcUrls:         [ARC_TESTNET.rpcUrl],
+            nativeCurrency:  {
+              name:     ARC_TESTNET.currency.name,
+              symbol:   ARC_TESTNET.currency.symbol,
+              decimals: ARC_TESTNET.currency.decimals,
+            },
+            blockExplorerUrls: [ARC_TESTNET.explorer],
           }],
         });
       }
