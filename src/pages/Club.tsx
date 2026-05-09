@@ -60,6 +60,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [error, setError]               = useState<string | null>(null);
   const [txStatus, setTxStatus]         = useState<string | null>(null);
   const [isRegistrar, setIsRegistrar]   = useState(false);
+  const [clubName, setClubName]         = useState<string>("");
   const [listingId, setListingId]       = useState<bigint | null>(null);
   const [listingPrice, setListingPrice] = useState("");
   const [portraitFile, setPortraitFile] = useState<File | null>(null);
@@ -80,6 +81,8 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const registry       = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
       const REGISTRAR_ROLE = await registry.REGISTRAR_ROLE();
       setIsRegistrar(await registry.hasRole(REGISTRAR_ROLE, wallet.address));
+      const name = await registry.getClubName(wallet.address).catch(() => "");
+      if (name) setClubName(name);
     } catch {}
   }
 
@@ -217,7 +220,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   return (
     <div>
       <div style={{ marginBottom: "2.5rem" }}>
-        <h1 style={{ fontSize: "3.5rem", color: "var(--gold)", marginBottom: "0.5rem" }}>PLAYERS</h1>
+        <h1 style={{ fontSize: "3.5rem", color: "var(--gold)", marginBottom: "0.5rem" }}>{clubName ? clubName.toUpperCase() : "CLUB"}</h1>
         <p style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>
           Register and manage player records on-chain
         </p>

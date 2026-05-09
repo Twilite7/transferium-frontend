@@ -34,11 +34,13 @@ const btn = (color: string, bg = "transparent") => ({
 interface ClubEntry {
   address: string;
   hasRole: boolean;
+  name?: string;
 }
 
 export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [isRegistrar, setIsRegistrar] = useState(false);
   const [clubAddress, setClubAddress] = useState("");
+  const [clubName, setClubName]       = useState("");
   const [status, setStatus]           = useState<string | null>(null);
   const [clubs, setClubs]             = useState<ClubEntry[]>([]);
   const [checking, setChecking]       = useState(false);
@@ -60,6 +62,7 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   async function grantClubRole() {
     if (!wallet.signer || !clubAddress) return;
     try { ethers.getAddress(clubAddress); } catch { setStatus("Invalid wallet address."); return; }
+    if (!clubName.trim()) { setStatus("Club name is required."); return; }
     setStatus("Granting club access on all contracts...");
     try {
       const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
@@ -78,9 +81,12 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       // DealEscrow uses LEAGUE_ROLE not CLUB_ROLE for admin, but clubs don't need a role there
       // — they interact through TransferEscrow which holds TRANSFER_ESCROW_ROLE on DealEscrow
 
-      setStatus("Club access granted on all contracts.");
-      setClubs(prev => [...prev.filter(c => c.address.toLowerCase() !== clubAddress.toLowerCase()), { address: clubAddress, hasRole: true }]);
+      setStatus("4/4 Setting club name...");
+      await waitForTx(await registry.setClubName(clubAddress, clubName.trim()), wallet.provider!);
+      setStatus(`Club "${clubName.trim()}" granted access on all contracts.`);
+      setClubs(prev => [...prev.filter(c => c.address.toLowerCase() !== clubAddress.toLowerCase()), { address: clubAddress, hasRole: true, name: clubName.trim() }]);
       setClubAddress("");
+      setClubName("");
     } catch (err: any) {
       console.error("grantClubRole error:", err);
       setStatus(parseError(err));
@@ -123,7 +129,9 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       ]);
       // I consider a club fully active only if it has the role on all three
       const hasRole = r && e && l;
-      setClubs(prev => [...prev.filter(c => c.address.toLowerCase() !== clubAddress.toLowerCase()), { address: clubAddress, hasRole }]);
+      const registry2 = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider!);
+      const name = await registry2.getClubName(clubAddress).catch(() => "");
+      setClubs(prev => [...prev.filter(c => c.address.toLowerCase() !== clubAddress.toLowerCase()), { address: clubAddress, hasRole, name: name || undefined }]);
     } catch (err: any) {
       console.error("lookupAddress error:", err);
       setStatus(parseError(err));
@@ -160,6 +168,11 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
           <input type="text" placeholder="0x..." value={clubAddress}
             onChange={e => setClubAddress(e.target.value)} style={input} />
+          <div style={{ marginTop: "0.75rem" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>CLUB NAME</p>
+            <input type="text" placeholder="e.g. Manchester United FC" value={clubName}
+              onChange={e => setClubName(e.target.value)} style={input} />
+          </div>
           <button onClick={lookupAddress} disabled={checking} style={btn("var(--text-secondary)")}>
             {checking ? "CHECKING..." : "LOOKUP"}
           </button>
@@ -187,7 +200,10 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             <tbody>
               {clubs.map((c, i) => (
                 <tr key={c.address} style={{ borderBottom: i < clubs.length - 1 ? "1px solid var(--border)" : "none" }}>
-                  <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-primary)" }}>{c.address}</td>
+                  <td style={{ padding: "1rem 1.25rem" }}>
+                    <p style={{ fontFamily: "var(--font-body)", fontSize: "0.85rem", marginBottom: "0.2rem" }}>{c.name ?? "—"}</p>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)" }}>{c.address.slice(0,10)}...{c.address.slice(-8)}</p>
+                  </td>
                   <td style={{ padding: "1rem 1.25rem" }}>
                     <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.08em", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: `1px solid ${c.hasRole ? "var(--green)" : "var(--border)"}`, color: c.hasRole ? "var(--green)" : "var(--text-dim)" }}>
                       {c.hasRole ? "ACTIVE CLUB" : "NO ROLE"}
