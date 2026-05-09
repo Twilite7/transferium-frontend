@@ -51,27 +51,32 @@ export function useWallet() {
 
   const switchNetwork = useCallback(async () => {
     if (!window.ethereum) return;
+    const chainHex = `0x${ARC_TESTNET.chainId.toString(16)}`;
+    const addChain = async () => {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId:           chainHex,
+          chainName:         ARC_TESTNET.name,
+          rpcUrls:           [ARC_TESTNET.rpcUrl],
+          nativeCurrency:    {
+            name:     ARC_TESTNET.currency.name,
+            symbol:   ARC_TESTNET.currency.symbol,
+            decimals: ARC_TESTNET.currency.decimals,
+          },
+          blockExplorerUrls: [ARC_TESTNET.explorer],
+        }],
+      });
+    };
     try {
       await window.ethereum.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: `0x${ARC_TESTNET.chainId.toString(16)}` }],
+        params: [{ chainId: chainHex }],
       });
     } catch (err: any) {
-      if (err.code === 4902) {
-        await window.ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [{
-            chainId:         `0x${ARC_TESTNET.chainId.toString(16)}`,
-            chainName:       ARC_TESTNET.name,
-            rpcUrls:         [ARC_TESTNET.rpcUrl],
-            nativeCurrency:  {
-              name:     ARC_TESTNET.currency.name,
-              symbol:   ARC_TESTNET.currency.symbol,
-              decimals: ARC_TESTNET.currency.decimals,
-            },
-            blockExplorerUrls: [ARC_TESTNET.explorer],
-          }],
-        });
+      // 4902 = chain not added, -32603 = unrecognized chain — both need wallet_addEthereumChain
+      if (err.code === 4902 || err.code === -32603) {
+        await addChain();
       }
     }
   }, []);
