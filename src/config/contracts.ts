@@ -8,11 +8,11 @@ import ReleaseEscrowABI  from './ReleaseEscrow.json'
 // ─── Chain ────────────────────────────────────────────────────────────────────
 // I keep chain config here so useWallet and wagmi both pull from one place
 export const ARC_TESTNET = {
-  chainId:         9998,
+  chainId:         5042002,
   name:            'Arc Testnet',
-  rpcUrl:          'https://rpc.testnet.arc.network/v1',
-  explorer:        'https://explorer.testnet.arc.network',
-  currency:        { name: 'ARC', symbol: 'ARC', decimals: 18 },
+  rpcUrl:          'https://rpc.testnet.arc.network',
+  explorer:        'https://testnet.arcscan.app',
+  currency:        { name: 'USDC', symbol: 'USDC', decimals: 6 },
 } as const
 
 // ─── Addresses ────────────────────────────────────────────────────────────────
