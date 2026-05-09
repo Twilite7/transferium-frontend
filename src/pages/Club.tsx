@@ -540,7 +540,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                       </td>
                       <td style={{ padding: "1rem 1.25rem" }}>
                         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" as const }}>
-                          {isMyPlayer(p) && p.isVerified && p.medicalClearance && !p.isListed && listingId !== p.id && (
+                          {isMyPlayer(p) && p.isVerified && p.medicalClearance && p._legalDocs?.documentsVerified && !p.isListed && listingId !== p.id && (
                             <button onClick={() => { setListingId(p.id); setListingPrice(""); }} style={btn("var(--gold)")}>LIST</button>
                           )}
                           {listingId === p.id && (
