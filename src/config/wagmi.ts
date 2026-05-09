@@ -3,7 +3,7 @@ import { defineChain } from 'viem'
 
 // Arc testnet — custom chain definition
 export const arc = defineChain({
-  id: 9998,
+  id: 5042002,
   name: 'Arc Testnet',
   nativeCurrency: { name: 'ARC', symbol: 'ARC', decimals: 18 },
   rpcUrls: {
