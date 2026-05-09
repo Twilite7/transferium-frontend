@@ -59,6 +59,8 @@ export const TRANSFER_ESCROW_ABI = [
   "function hasRole(bytes32 role, address account) external view returns (bool)",
   "function CLUB_ROLE() external view returns (bytes32)",
   "function LEAGUE_ROLE() external view returns (bytes32)",
+  "function grantRole(bytes32 role, address account) external",
+  "function revokeRole(bytes32 role, address account) external",
 ] as const
 
 // ─── DealEscrow v2 ────────────────────────────────────────────────────────────
