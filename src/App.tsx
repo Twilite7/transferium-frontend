@@ -84,7 +84,9 @@ function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void
 
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
         {wallet.isConnected && !wallet.isCorrectNetwork && (
-          <button onClick={wallet.switchNetwork} style={{ background: "transparent", border: "1px solid var(--amber)", color: "var(--amber)", fontFamily: "var(--font-mono)", fontSize: "0.7rem", padding: "5px 12px", borderRadius: "var(--radius-sm)", cursor: "pointer" }}>
+          <button
+            onClick={() => wallet.switchNetwork()}
+            style={{ background: "transparent", border: "1px solid var(--amber)", color: "var(--amber)", fontFamily: "var(--font-mono)", fontSize: "0.7rem", padding: "5px 12px", borderRadius: "var(--radius-sm)", cursor: "pointer", pointerEvents: "all", position: "relative", zIndex: 200 }}>
             SWITCH NETWORK
           </button>
         )}
