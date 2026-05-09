@@ -240,10 +240,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
         REGISTRAR ACTIONS — PLAYER #{playerId.toString()}
       </p>
 
-      {/* Club Role Management — shown once, not per-player */}
-      {playerId === 1n && (
-        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", marginBottom: "1rem", padding: "0.75rem 1rem" }}>
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "0.75rem" }}>
+      <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "0.75rem" }}>
             CLUB ROLE MANAGEMENT
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.5rem", alignItems: "end", marginBottom: "0.5rem" }}>
