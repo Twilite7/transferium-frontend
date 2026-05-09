@@ -513,7 +513,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
               </tr>
             </thead>
             <tbody>
-              {players.filter(isMyPlayer).map((p, i) => {
+              {(isRegistrar ? players : players.filter(isMyPlayer)).map((p, i) => {
                 const status     = statusLabel(p);
                 const isLast     = i === players.length - 1;
                 const showBorder = !isLast || isRegistrar;
@@ -525,7 +525,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                       <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.position}</td>
                       <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.nationality}</td>
                       <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-primary)" }}>
-                        {p.weeklySalary > 0n ? `€${(Number(p.weeklySalary) / 1e6).toLocaleString()}/wk` : "—"}
+                        {isRegistrar ? "—" : p.weeklySalary > 0n ? `€${(Number(p.weeklySalary) / 1e6).toLocaleString()}/wk` : "—"}
                       </td>
                       <td style={{ padding: "1rem 1.25rem" }}>
                         <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.08em", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: `1px solid ${status.border}`, color: status.color }}>
@@ -533,7 +533,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                         </span>
                       </td>
                       <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-primary)" }}>
-                        {p.isListed ? `€${(Number(p.askingPrice) / 1e6).toLocaleString()}` : "—"}
+                        {isRegistrar ? "—" : p.isListed ? `€${(Number(p.askingPrice) / 1e6).toLocaleString()}` : "—"}
                       </td>
                       <td style={{ padding: "1rem 1.25rem" }}>
                         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" as const }}>
