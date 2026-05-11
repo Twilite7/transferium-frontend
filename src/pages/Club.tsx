@@ -456,7 +456,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
               onChange={e => setForm(prev => ({ ...prev, contractExpiry: e.target.value }))}
               style={input}
             />
-            <input type="number" placeholder="Weekly Salary in € (e.g. 50000)"
+            <input type="number" placeholder="Weekly Salary in € (e.g. 2)"
               value={form.weeklySalary}
               onChange={e => setForm(prev => ({ ...prev, weeklySalary: e.target.value }))}
               style={input}
@@ -546,7 +546,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           {listingId === p.id && (
                             <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                               <span style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>€</span>
-                              <input type="number" placeholder="asking price" value={listingPrice}
+                              <input type="number" placeholder="e.g. 20" value={listingPrice}
                                 onChange={e => setListingPrice(e.target.value)}
                                 style={{ ...input, width: "120px", padding: "4px 8px", border: "1px solid var(--border-accent)" }}
                               />
