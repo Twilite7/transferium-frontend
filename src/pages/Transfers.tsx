@@ -419,10 +419,15 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                           {!isOwn && windowOpen && (
                             <button onClick={() => {
                               // I find the active offer for this player to attach bid to
-                              const offer = myOffers.find(o => o.playerId === p.id)
-                              // If we can't find it in myOffers (we're buyer not seller), we need offerId
-                              // For now show bid form attached to player
-                              setSelectedOffer(offer ?? { id: 0n, playerId: p.id, playerName: p.name, sellingClub: p.currentClub, paymentToken: EURC_ADDRESS, askingPrice: p.askingPrice, sellOnBps: 0n, sellerAgentBps: 0n, minimumHijackIncrementBps: 500n, activeNegotiations: 0n, exists: true })
+                              // I fetch the offerId on-chain — listedPlayers don't carry it
+                              try {
+                                const esc = new (await import("ethers")).ethers.Contract(
+                                  CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.provider!
+                                )
+                                const offerId: bigint = await esc.getPlayerOffer(p.id)
+                                if (offerId === 0n) { alert("No active offer found for this player."); return; }
+                                setSelectedOffer({ id: offerId, playerId: p.id, playerName: p.name, sellingClub: p.currentClub, paymentToken: EURC_ADDRESS, askingPrice: p.askingPrice, sellOnBps: 0n, sellerAgentBps: 0n, minimumHijackIncrementBps: 500n, activeNegotiations: 0n, exists: true })
+                              } catch { alert("Failed to load offer. Try again."); }
                             }} style={btn("var(--text-secondary)")}>
                               PLACE BID
                             </button>
