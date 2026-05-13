@@ -66,7 +66,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [portraitFile, setPortraitFile] = useState<File | null>(null);
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
   const [form, setForm] = useState({
-    name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: ""
+    name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: ""
   });
 
   useEffect(() => {
@@ -165,12 +165,14 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
         cid = await uploadPortrait(portraitFile);
       }
       const tx       = await registry.registerPlayer(
-        form.name, form.position, form.nationality, expiry, salary, cid, { value: regFee }
+        form.name, form.position, form.nationality, expiry, salary, cid,
+        form.fifaId ? ethers.encodeBytes32String(form.fifaId.slice(0, 31)) : ethers.ZeroHash,
+        { value: regFee }
       );
       setTxStatus("Waiting for confirmation...");
       await waitForTx(tx, wallet.provider!);
       setTxStatus("Player registered.");
-      setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "" });
+      setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: "" });
       await loadPlayers();
     } catch (err: any) {
       setTxStatus(parseError(err));
@@ -459,6 +461,11 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             <input type="number" placeholder="Weekly Salary in € (e.g. 2)"
               value={form.weeklySalary}
               onChange={e => setForm(prev => ({ ...prev, weeklySalary: e.target.value }))}
+              style={input}
+            />
+            <input type="text" placeholder="FIFA / National ID (optional, max 31 chars)"
+              value={form.fifaId}
+              onChange={e => setForm(prev => ({ ...prev, fifaId: e.target.value.slice(0, 31) }))}
               style={input}
             />
             {/* Portrait upload */}
