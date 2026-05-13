@@ -70,14 +70,14 @@ interface Offer {
 
 interface Bid {
   offerId: bigint; buyingClub: string; transferFee: bigint;
-  salaryGuaranteeMonths: bigint; buyerAgentBps: bigint; status: number;
+  signingBonusMonths: bigint; buyerAgentBps: bigint; status: number;
   roundNumber: bigint; isCounterFromSeller: boolean;
 }
 
 interface Deal {
   id: bigint; playerId: bigint; playerName: string;
   sellingClub: string; buyingClub: string; paymentToken: string;
-  transferFee: bigint; salaryGuaranteeAmount: bigint;
+  transferFee: bigint; signingBonusAmount: bigint;
   state: number; stateDeadline: bigint; acceptedAt: bigint;
 }
 
@@ -105,7 +105,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
   const [bidForm, setBidForm] = useState({
     transferFee: "", sellOnBps: "0", sellOnRecipient: "",
     sellerAgentBps: "0", sellerAgent: "", buyerAgentBps: "0",
-    buyerAgent: "", salaryGuaranteeMonths: "0",
+    buyerAgent: "", signingBonusMonths: "0",
   })
 
   useEffect(() => {
@@ -172,7 +172,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
             const bids = await escrow.getAllBids(i)
             bidsMap[i.toString()] = bids.map((b: any) => ({
               offerId: b.offerId, buyingClub: b.buyingClub,
-              transferFee: b.transferFee, salaryGuaranteeMonths: b.salaryGuaranteeMonths,
+              transferFee: b.transferFee, signingBonusMonths: b.signingBonusMonths,
               buyerAgentBps: b.buyerAgentBps, status: Number(b.status),
               roundNumber: b.roundNumber, isCounterFromSeller: b.isCounterFromSeller,
             }))
@@ -197,7 +197,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
             id: BigInt(i), playerId: d.playerId, playerName,
             sellingClub: d.sellingClub, buyingClub: d.buyingClub,
             paymentToken: d.paymentToken, transferFee: d.transferFee,
-            salaryGuaranteeAmount: d.salaryGuaranteeAmount,
+            signingBonusAmount: d.signingBonusAmount,
             state: Number(d.state), stateDeadline: d.stateDeadline,
             acceptedAt: d.acceptedAt,
           })
@@ -257,13 +257,13 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
         bidForm.sellerAgent || ethers.ZeroAddress,
         parseInt(bidForm.buyerAgentBps) || 0,
         bidForm.buyerAgent || ethers.ZeroAddress,
-        parseInt(bidForm.salaryGuaranteeMonths) || 0
+        parseInt(bidForm.signingBonusMonths) || 0
       )
       setTxStatus("Waiting for confirmation...")
       await tx.wait()
       setTxStatus("Bid submitted.")
       setSelectedOffer(null)
-      setBidForm({ transferFee: "", sellOnBps: "0", sellOnRecipient: "", sellerAgentBps: "0", sellerAgent: "", buyerAgentBps: "0", buyerAgent: "", salaryGuaranteeMonths: "0" })
+      setBidForm({ transferFee: "", sellOnBps: "0", sellOnRecipient: "", sellerAgentBps: "0", sellerAgent: "", buyerAgentBps: "0", buyerAgent: "", signingBonusMonths: "0" })
       await loadAll()
     } catch (err: any) {
       setTxStatus(`Error: ${err.reason ?? err.message}`)
@@ -302,7 +302,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
     try {
       const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer)
       const token      = new ethers.Contract(EURC_ADDRESS, ERC20_ABI, wallet.signer)
-      const total      = deal.transferFee + deal.salaryGuaranteeAmount
+      const total      = deal.transferFee + deal.signingBonusAmount
       await (await token.approve(CONTRACTS.DealEscrow, total)).wait()
       setTxStatus("Funding deal...")
       await (await dealEscrow.fundDeal(dealId)).wait()
@@ -412,7 +412,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                           {/* Selling club creates offer */}
                           {isOwn && windowOpen && (
                             <button onClick={() => setSelectedPlayer(sel ? null : p)} style={btn(sel ? "var(--gold)" : "var(--text-secondary)", sel ? "rgba(201,168,76,0.1)" : "transparent")}>
-                              {sel ? "▼ FILL OFFER" : "CREATE OFFER"}
+                              {sel ? "▼ CREATE OFFER" : "CREATE OFFER"}
                             </button>
                           )}
                           {/* Buying club places bid on existing offer */}
@@ -514,8 +514,8 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                     <div><label style={labelStyle}>TRANSFER FEE (€)</label>
                       <input type="number" placeholder="e.g. 50000000" value={bidForm.transferFee} onChange={e => setBidForm(p => ({ ...p, transferFee: e.target.value }))} style={inputStyle} />
                     </div>
-                    <div><label style={labelStyle}>SALARY GUARANTEE (MONTHS)</label>
-                      <input type="number" placeholder="0–24" value={bidForm.salaryGuaranteeMonths} onChange={e => setBidForm(p => ({ ...p, salaryGuaranteeMonths: e.target.value }))} style={inputStyle} />
+                    <div><label style={labelStyle}>SIGNING BONUS (MONTHS)</label>
+                      <input type="number" placeholder="0–24" value={bidForm.signingBonusMonths} onChange={e => setBidForm(p => ({ ...p, signingBonusMonths: e.target.value }))} style={inputStyle} />
                     </div>
                     <div><label style={labelStyle}>BUYER AGENT BPS</label>
                       <input type="number" value={bidForm.buyerAgentBps} onChange={e => setBidForm(p => ({ ...p, buyerAgentBps: e.target.value }))} style={inputStyle} />
@@ -566,7 +566,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                                 {bid.buyingClub.slice(0, 8)}...{bid.buyingClub.slice(-6)} — <span style={{ color: "var(--gold)" }}>€{(Number(bid.transferFee) / 1e6).toLocaleString()}</span>
                               </p>
                               <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)" }}>
-                                Salary guarantee: {bid.salaryGuaranteeMonths.toString()} months · Round {bid.roundNumber.toString()} · {bid.isCounterFromSeller ? "Waiting for buyer" : "Your turn"}
+                                Salary guarantee: {bid.signingBonusMonths.toString()} months · Round {bid.roundNumber.toString()} · {bid.isCounterFromSeller ? "Waiting for buyer" : "Your turn"}
                               </p>
                             </div>
                             <div style={{ display: "flex", gap: "0.5rem" }}>

@@ -41,11 +41,11 @@ export const TRANSFER_ESCROW_ABI = [
   "function rejectBid(uint256 offerId, address buyingClub) external",
   "function counterBid(uint256 offerId, address buyingClub, uint256 newTransferFee, uint256 newSellOnBps, address newSellOnRecipient, uint256 newSellerAgentBps, address newSellerAgent) external",
   // Bid flow
-  "function submitBid(uint256 offerId, uint256 transferFee, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 buyerAgentBps, address buyerAgent, uint256 salaryGuaranteeMonths) external",
+  "function submitBid(uint256 offerId, uint256 transferFee, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 buyerAgentBps, address buyerAgent, uint256 signingBonusMonths) external",
   "function updateBid(uint256 offerId, uint256 newTransferFee, uint256 newSellOnBps, address newSellOnRecipient, uint256 newSellerAgentBps, address newSellerAgent, uint256 newBuyerAgentBps, address newBuyerAgent, uint256 newSalaryGuaranteeMonths) external",
   "function withdrawBid(uint256 offerId) external",
   // Hijack
-  "function submitHijackBid(uint256 dealId, uint256 transferFee, uint256 buyerAgentBps, address buyerAgent, uint256 salaryGuaranteeMonths) external",
+  "function submitHijackBid(uint256 dealId, uint256 transferFee, uint256 buyerAgentBps, address buyerAgent, uint256 signingBonusMonths) external",
   // Expiry / renegotiation
   "function processExpiry(uint256 dealId) external",
   "function expireMutualCancel(uint256 dealId) external",
@@ -53,8 +53,8 @@ export const TRANSFER_ESCROW_ABI = [
   "function resolveDeadlock(uint256 dealId, uint8 op, uint256 newFee) external",
   // Views
   "function getOffer(uint256 offerId) external view returns (tuple(uint256 playerId, address sellingClub, address paymentToken, uint256 askingPrice, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 minimumHijackIncrementBps, uint256 createdAt, uint256 activeNegotiations, bool exists))",
-  "function getBid(uint256 offerId, address buyingClub) external view returns (tuple(uint256 offerId, address buyingClub, address paymentToken, uint256 transferFee, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 buyerAgentBps, address buyerAgent, uint256 salaryGuaranteeMonths, uint256 submittedAt, uint256 updatedAt, uint256 roundNumber, bool isCounterFromSeller, uint8 status))",
-  "function getAllBids(uint256 offerId) external view returns (tuple(uint256 offerId, address buyingClub, address paymentToken, uint256 transferFee, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 buyerAgentBps, address buyerAgent, uint256 salaryGuaranteeMonths, uint256 submittedAt, uint256 updatedAt, uint256 roundNumber, bool isCounterFromSeller, uint8 status)[])",
+  "function getBid(uint256 offerId, address buyingClub) external view returns (tuple(uint256 offerId, address buyingClub, address paymentToken, uint256 transferFee, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 buyerAgentBps, address buyerAgent, uint256 signingBonusMonths, uint256 submittedAt, uint256 updatedAt, uint256 roundNumber, bool isCounterFromSeller, uint8 status))",
+  "function getAllBids(uint256 offerId) external view returns (tuple(uint256 offerId, address buyingClub, address paymentToken, uint256 transferFee, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 buyerAgentBps, address buyerAgent, uint256 signingBonusMonths, uint256 submittedAt, uint256 updatedAt, uint256 roundNumber, bool isCounterFromSeller, uint8 status)[])",
   "function getPlayerOffer(uint256 playerId) external view returns (uint256)",
   "function getPlayerDeal(uint256 playerId) external view returns (uint256)",
   "function totalOffers() external view returns (uint256)",
@@ -71,7 +71,7 @@ export const DEAL_ESCROW_ABI = [
   "function consentToTransfer(uint256 dealId) external",
   "function declineTransfer(uint256 dealId) external",
   "function submitMedical(uint256 dealId, uint8 outcome, bytes32 medicalHash) external",
-  "function claimSalaryGuarantee(uint256 dealId) external",
+  "function claimSigningBonus(uint256 dealId) external",
   // Selling club actions
   "function acceptHijackBid(uint256 dealId) external",
   "function rejectHijackBid(uint256 dealId) external",
@@ -94,7 +94,7 @@ export const DEAL_ESCROW_ABI = [
   // Withdraw
   "function withdrawClaimable(address token) external",
   // Views
-  "function getDeal(uint256 dealId) external view returns (tuple(uint256 offerId, uint256 playerId, address sellingClub, address buyingClub, address paymentToken, uint256 transferFee, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 buyerAgentBps, address buyerAgent, uint256 salaryGuaranteeMonths, uint256 salaryGuaranteeAmount, bool salaryGuaranteeClaimed, uint256 minimumHijackIncrementBps, uint8 state, uint256 stateDeadline, uint256 acceptedAt, uint256 fundedAt, bytes32 medicalHash, uint8 medicalOutcome, bool frozen, uint256 frozenAt, uint256 hijackDeposit, address hijackDepositClub, address mutualCancelProposer, uint256 mutualCancelDeadline))",
+  "function getDeal(uint256 dealId) external view returns (tuple(uint256 offerId, uint256 playerId, address sellingClub, address buyingClub, address paymentToken, uint256 transferFee, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 buyerAgentBps, address buyerAgent, uint256 signingBonusMonths, uint256 signingBonusAmount, bool salaryGuaranteeClaimed, uint256 minimumHijackIncrementBps, uint8 state, uint256 stateDeadline, uint256 acceptedAt, uint256 fundedAt, bytes32 medicalHash, uint8 medicalOutcome, bool frozen, uint256 frozenAt, uint256 hijackDeposit, address hijackDepositClub, address mutualCancelProposer, uint256 mutualCancelDeadline))",
   "function getDealAddOns(uint256 dealId) external view returns (tuple(string description, uint256 amount, bool toPlayer, bool triggered)[])",
   "function getPlayerDeal(uint256 playerId) external view returns (uint256)",
   "function getClaimable(address account, address token) external view returns (uint256)",
