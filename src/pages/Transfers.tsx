@@ -2,41 +2,9 @@ import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS, EURC_ADDRESS } from "../config/contracts";
-import { PLAYER_REGISTRY_ABI, TRANSFER_ESCROW_ABI, DEAL_ESCROW_ABI, TRANSFER_WINDOW_ABI, ERC20_ABI } from "../config/abis";
+import { PLAYER_REGISTRY_ABI, TRANSFER_ESCROW_ABI, DEAL_ESCROW_ABI, TRANSFER_WINDOW_ABI } from "../config/abis";
 
 // ─── v2 State mappings ────────────────────────────────────────────────────────
-const DEAL_STATES: Record<number, string> = {
-  0:  "NONE",
-  1:  "OFFER_CREATED",
-  2:  "BID_SUBMITTED",
-  3:  "NEGOTIATING",
-  4:  "BID_ACCEPTED",
-  5:  "AWAITING_CONSENT",
-  6:  "AWAITING_MEDICAL",
-  7:  "MEDICAL_RENEGO",
-  8:  "MEDICAL_DISPUTE",
-  9:  "HIJACK_WINDOW",
-  10: "HIJACK_CONSENT",
-  11: "HIJACK_MEDICAL",
-  12: "MUTUAL_CANCEL",
-  13: "FUNDING_PENDING",
-  14: "FUNDED",
-  15: "DISPUTE_WINDOW",
-  16: "COMPLETED",
-  17: "CANCELLED",
-}
-const DEAL_COLORS: Record<string, string> = {
-  AWAITING_CONSENT:  "var(--amber)",
-  AWAITING_MEDICAL:  "var(--amber)",
-  MEDICAL_RENEGO:    "var(--amber)",
-  MEDICAL_DISPUTE:   "var(--red)",
-  HIJACK_WINDOW:     "var(--gold)",
-  FUNDING_PENDING:   "var(--amber)",
-  FUNDED:            "var(--green)",
-  DISPUTE_WINDOW:    "var(--red)",
-  COMPLETED:         "var(--text-secondary)",
-  CANCELLED:         "var(--text-dim)",
-}
 
 const btn = (color: string, bg = "transparent") => ({
   background: bg, border: `1px solid ${color}`, color,
@@ -84,7 +52,6 @@ interface Deal {
 export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [listedPlayers, setListedPlayers]     = useState<ListedPlayer[]>([])
   const [myOffers, setMyOffers]               = useState<Offer[]>([])
-  const [myDeals, setMyDeals]                 = useState<Deal[]>([])
   const [offerBids, setOfferBids]             = useState<Record<string, Bid[]>>({})
   const [loading, setLoading]                 = useState(false)
   const [windowOpen, setWindowOpen]           = useState(false)
@@ -206,7 +173,6 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
           })
         } catch {}
       }
-      setMyDeals(deals)
     } catch (err) {
       console.error(err)
     } finally {
@@ -304,52 +270,6 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       setTxStatus(`Error: ${err.reason ?? err.message}`)
     }
   }
-
-  async function fundDeal(dealId: bigint, deal: Deal) {
-    if (!wallet.signer) return
-    setTxStatus("Approving EURC...")
-    try {
-      const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer)
-      const token      = new ethers.Contract(EURC_ADDRESS, ERC20_ABI, wallet.signer)
-      const total      = deal.transferFee + deal.signingBonusAmount
-      await (await token.approve(CONTRACTS.DealEscrow, total)).wait()
-      setTxStatus("Funding deal...")
-      await (await dealEscrow.fundDeal(dealId)).wait()
-      setTxStatus("Deal funded.")
-      await loadAll()
-    } catch (err: any) {
-      setTxStatus(`Error: ${err.reason ?? err.message}`)
-    }
-  }
-
-  async function withdrawClaimable() {
-    if (!wallet.signer) return
-    setTxStatus("Withdrawing...")
-    try {
-      const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer)
-      await (await dealEscrow.withdrawClaimable(EURC_ADDRESS)).wait()
-      setTxStatus("Withdrawn successfully.")
-      await loadAll()
-    } catch (err: any) {
-      setTxStatus(`Error: ${err.reason ?? err.message}`)
-    }
-  }
-
-  async function processExpiry(dealId: bigint) {
-    if (!wallet.signer) return
-    setTxStatus("Processing expiry...")
-    try {
-      const escrow = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.signer)
-      await (await escrow.processExpiry(dealId)).wait()
-      setTxStatus("Expiry processed.")
-      await loadAll()
-    } catch (err: any) {
-      setTxStatus(`Error: ${err.reason ?? err.message}`)
-    }
-  }
-
-  const isBuyer  = (d: Deal) => d.buyingClub.toLowerCase()  === wallet.address?.toLowerCase()
-  const isExpired = (d: Deal) => d.stateDeadline > 0n && BigInt(Math.floor(Date.now() / 1000)) > d.stateDeadline
 
   const TabBtn = ({ t, label }: { t: typeof tab; label: string }) => (
     <button onClick={() => setTab(t)} style={{
