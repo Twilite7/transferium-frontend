@@ -107,6 +107,9 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
     sellerAgentBps: "0", sellerAgent: "", buyerAgentBps: "0",
     buyerAgent: "", signingBonusMonths: "0",
   })
+  const [installmentRows, setInstallmentRows] = useState<{ amount: string; dueDate: string }[]>([
+    { amount: "", dueDate: "" }
+  ])
 
   useEffect(() => {
     if (!wallet.provider) return
@@ -248,6 +251,9 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
     setTxStatus("Submitting bid...")
     try {
       const escrow = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.signer)
+      const nowSec = Math.floor(Date.now() / 1000)
+      const instAmounts   = installmentRows.map(r => ethers.parseUnits(r.amount || bidForm.transferFee || "0", 6))
+      const instDueDates  = installmentRows.map(r => BigInt(r.dueDate ? Math.floor(new Date(r.dueDate).getTime() / 1000) : nowSec + 300))
       const tx = await escrow.submitBid(
         offerId,
         ethers.parseUnits(bidForm.transferFee, 6),
@@ -257,13 +263,16 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
         bidForm.sellerAgent || ethers.ZeroAddress,
         parseInt(bidForm.buyerAgentBps) || 0,
         bidForm.buyerAgent || ethers.ZeroAddress,
-        parseInt(bidForm.signingBonusMonths) || 0
+        parseInt(bidForm.signingBonusMonths) || 0,
+        instAmounts,
+        instDueDates,
       )
       setTxStatus("Waiting for confirmation...")
       await tx.wait()
       setTxStatus("Bid submitted.")
       setSelectedOffer(null)
       setBidForm({ transferFee: "", sellOnBps: "0", sellOnRecipient: "", sellerAgentBps: "0", sellerAgent: "", buyerAgentBps: "0", buyerAgent: "", signingBonusMonths: "0" })
+      setInstallmentRows([{ amount: "", dueDate: "" }])
       await loadAll()
     } catch (err: any) {
       setTxStatus(`Error: ${err.reason ?? err.message}`)
@@ -527,6 +536,38 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                       <input type="text" placeholder="0x..." value={bidForm.buyerAgent} onChange={e => setBidForm(p => ({ ...p, buyerAgent: e.target.value }))} style={inputStyle} />
                     </div>
                   )}
+                  {/* Installment schedule */}
+                  <div style={{ marginBottom: "1rem" }}>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
+                      INSTALLMENT SCHEDULE ({installmentRows.length} payment{installmentRows.length !== 1 ? "s" : ""})
+                    </p>
+                    {installmentRows.map((row, idx) => (
+                      <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "0.5rem", marginBottom: "0.4rem", alignItems: "end" }}>
+                        <div>
+                          {idx === 0 && <label style={labelStyle}>AMOUNT (€)</label>}
+                          <input type="number" placeholder={bidForm.transferFee || "0"}
+                            value={row.amount}
+                            onChange={e => setInstallmentRows(rows => rows.map((r, i) => i === idx ? { ...r, amount: e.target.value } : r))}
+                            style={inputStyle} />
+                        </div>
+                        <div>
+                          {idx === 0 && <label style={labelStyle}>DUE DATE</label>}
+                          <input type="date"
+                            value={row.dueDate}
+                            onChange={e => setInstallmentRows(rows => rows.map((r, i) => i === idx ? { ...r, dueDate: e.target.value } : r))}
+                            style={inputStyle} />
+                        </div>
+                        <button
+                          onClick={() => setInstallmentRows(rows => rows.length === 1 ? rows : rows.filter((_, i) => i !== idx))}
+                          style={{ ...btn("var(--red)"), padding: "6px 10px", alignSelf: "end" }}>✕</button>
+                      </div>
+                    ))}
+                    <button onClick={() => setInstallmentRows(rows => [...rows, { amount: "", dueDate: "" }])}
+                      style={{ ...btn("var(--text-secondary)"), marginTop: "0.25rem", fontSize: "0.6rem", padding: "4px 12px" }}>
+                      + ADD INSTALLMENT
+                    </button>
+                  </div>
+
                   <div style={{ display: "flex", gap: "0.75rem" }}>
                     <button onClick={() => submitBid(selectedOffer.id)} disabled={!bidForm.transferFee} style={{ ...btn("var(--gold)", bidForm.transferFee ? "rgba(201,168,76,0.1)" : "transparent"), padding: "8px 24px", fontSize: "0.75rem" }}>SUBMIT BID</button>
                     <button onClick={() => setSelectedOffer(null)} style={{ ...btn("var(--text-dim)"), padding: "8px 24px", fontSize: "0.75rem" }}>CANCEL</button>
