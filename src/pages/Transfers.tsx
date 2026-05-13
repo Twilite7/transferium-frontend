@@ -91,7 +91,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
   const [selectedPlayer, setSelectedPlayer]   = useState<ListedPlayer | null>(null)
   const [selectedOffer, setSelectedOffer]     = useState<Offer | null>(null)
   const [txStatus, setTxStatus]               = useState<string | null>(null)
-  const [tab, setTab]                         = useState<"market" | "offers" | "deals">("market")
+  const [tab, setTab]                         = useState<"market" | "offers">("market")
 
   // Offer form
   const [offerForm, setOfferForm] = useState({
@@ -388,7 +388,6 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
           <div style={{ display: "flex", gap: "0.25rem", marginBottom: "1.5rem" }}>
             <TabBtn t="market" label="MARKET" />
             <TabBtn t="offers" label={`MY OFFERS (${myOffers.length})`} />
-            <TabBtn t="deals"  label={`MY DEALS (${myDeals.length})`} />
           </div>
 
           {loading && <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-dim)", fontSize: "0.8rem" }}>Loading...</p>}
@@ -620,58 +619,6 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                         ))}
                       </div>
                     )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* ── DEALS TAB ─────────────────────────────────────────────────── */}
-          {tab === "deals" && !loading && (
-            <div>
-              {myDeals.length === 0 ? (
-                <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "4rem", textAlign: "center", background: "var(--bg-card)" }}>
-                  <p style={{ fontFamily: "var(--font-display)", fontSize: "2rem", color: "var(--text-dim)" }}>NO ACTIVE DEALS</p>
-                </div>
-              ) : myDeals.map(d => {
-                const stateLabel = DEAL_STATES[d.state] ?? "UNKNOWN"
-                const stateColor = DEAL_COLORS[stateLabel] ?? "var(--text-dim)"
-                const buyer  = isBuyer(d)
-                const expired = isExpired(d)
-                const deadline = d.stateDeadline > 0n
-                  ? new Date(Number(d.stateDeadline) * 1000).toLocaleString("en-GB")
-                  : null
-
-                return (
-                  <div key={d.id.toString()} style={{ background: "var(--bg-card)", border: `1px solid ${stateColor === "var(--text-dim)" ? "var(--border)" : stateColor + "66"}`, borderRadius: "var(--radius-lg)", padding: "1.25rem 1.5rem", marginBottom: "0.75rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
-                      <div>
-                        <p style={{ fontFamily: "var(--font-body)", fontSize: "0.95rem", marginBottom: "0.2rem" }}>
-                          {d.playerName} — <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>€{(Number(d.transferFee) / 1e6).toLocaleString()}</span>
-                        </p>
-                        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)" }}>
-                          Deal #{d.id.toString()} · {buyer ? "Buying" : "Selling"}
-                          {deadline && ` · Deadline: ${deadline}`}
-                        </p>
-                      </div>
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.08em", padding: "3px 10px", borderRadius: "var(--radius-sm)", border: `1px solid ${stateColor}`, color: stateColor }}>
-                        {stateLabel}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
-                      {/* Buying club funds deal */}
-                      {buyer && d.state === 13 && (
-                        <button onClick={() => fundDeal(d.id, d)} style={btn("var(--green)", "rgba(45,206,137,0.1)")}>FUND DEAL</button>
-                      )}
-                      {/* Withdraw claimable on completed/cancelled */}
-                      {(d.state === 16 || d.state === 17) && (
-                        <button onClick={withdrawClaimable} style={btn("var(--gold)")}>WITHDRAW CLAIMABLE</button>
-                      )}
-                      {/* Anyone can process expiry */}
-                      {expired && d.state < 16 && (
-                        <button onClick={() => processExpiry(d.id)} style={btn("var(--text-secondary)")}>PROCESS EXPIRY</button>
-                      )}
-                    </div>
                   </div>
                 )
               })}
