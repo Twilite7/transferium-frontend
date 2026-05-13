@@ -10,9 +10,11 @@ import { Transfers } from "./pages/Transfers";
 import { Loans }     from "./pages/Loans";
 import { League }       from "./pages/League";
 import { PlayerPortal } from "./pages/PlayerPortal";
+import { Deals }       from "./pages/Deals";
+import { Special }     from "./pages/Special";
 import "./index.css";
 
-type Page = "dashboard" | "players" | "transfers" | "loans" | "league" | "portal";
+type Page = "dashboard" | "players" | "transfers" | "deals" | "loans" | "special" | "league" | "portal";
 
 export default function App() {
   const [page, setPage] = useState<Page>("dashboard");
@@ -26,6 +28,8 @@ export default function App() {
         {page === "players"    && <Club       wallet={wallet} />}
         {page === "transfers"  && <Transfers wallet={wallet} />}
         {page === "loans"      && <Loans     wallet={wallet} />}
+        {page === "deals"      && <Deals     wallet={wallet} />}
+        {page === "special"    && <Special   wallet={wallet} />}
         {page === "league"    && <League    wallet={wallet} />}
         {page === "portal"    && <PlayerPortal wallet={wallet} />}
       </main>
@@ -52,7 +56,9 @@ function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void
     { key: "dashboard", label: "Overview"  },
     { key: "players",   label: "Club"      },
     { key: "transfers", label: "Transfers" },
+    { key: "deals",     label: "Deals"     },
     { key: "loans",     label: "Loans"     },
+    { key: "special",   label: "Special"   },
     { key: "portal",    label: "Player"    },
     ...(isRegistrar ? [{ key: "league" as Page, label: "League" }] : []),
   ];
