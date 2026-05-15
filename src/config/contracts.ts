@@ -3,7 +3,8 @@ import TransferEscrowABI from './TransferEscrow.json'
 import DealEscrowABI     from './DealEscrow.json'
 import LoanEscrowABI     from './LoanEscrow.json'
 import TransferWindowABI from './TransferWindow.json'
-import ReleaseEscrowABI  from './ReleaseEscrow.json'
+import ReleaseEscrowABI      from './ReleaseEscrow.json'
+import InstallmentEscrowABI  from './InstallmentEscrow.json'
 
 // ─── Chain ────────────────────────────────────────────────────────────────────
 // I keep chain config here so useWallet and wagmi both pull from one place
@@ -21,6 +22,7 @@ export const ARC_TESTNET = {
 export const CONTRACTS = {
   PlayerRegistry: '0x8576FC8d9c33B5fD9f1560BB17F240D20F37a043',
   TransferWindow: '0x688b98f7d27d5F4f709c79CeDCE06608C83c489e',
+  InstallmentEscrow: '0xdB7A293DCBb26c93831B9a6B81f286FA9B4E34a2',
   LoanEscrow:     '0x51D43F719EE2A75D5097D7bcB4E5454Ff9dF285A',
   DealEscrow:     '0x850bdb0bd765ad282Acf05cD3045185c5237F530',
   TransferEscrow: '0x29Adf04B6495C1fea5C3303B4ae26CcA76C8C32B',
@@ -77,7 +79,8 @@ export const PLAYER_REGISTRY_ABI = PlayerRegistryABI.abi
 export const TRANSFER_ESCROW_ABI = TransferEscrowABI.abi
 export const DEAL_ESCROW_ABI     = DealEscrowABI.abi
 export const LOAN_ESCROW_ABI     = LoanEscrowABI.abi
-export const TRANSFER_WINDOW_ABI = TransferWindowABI.abi
+export const TRANSFER_WINDOW_ABI    = TransferWindowABI.abi
+export const INSTALLMENT_ESCROW_ABI = InstallmentEscrowABI.abi
 
 // ─── IPFS helper ──────────────────────────────────────────────────────────────
 export const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs'

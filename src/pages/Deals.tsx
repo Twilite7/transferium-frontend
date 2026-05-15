@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
-import { DEAL_ESCROW_ABI, TRANSFER_ESCROW_ABI, PLAYER_REGISTRY_ABI } from "../config/abis";
+import { DEAL_ESCROW_ABI, TRANSFER_ESCROW_ABI, INSTALLMENT_ESCROW_ABI, PLAYER_REGISTRY_ABI } from "../config/abis";
 import { waitForTx } from "../utils/waitForTx";
 import { parseError } from "../utils/parseError";
 
@@ -131,13 +131,13 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     if (!wallet.signer) return;
     setTxStatus(`Paying installment ${index + 1}...`);
     try {
-      const inst      = d.installments[index];
-      const token     = new ethers.Contract(d.paymentToken, ["function approve(address,uint256) external returns (bool)"], wallet.signer);
-      const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer);
+      const inst             = d.installments[index];
+      const token            = new ethers.Contract(d.paymentToken, ["function approve(address,uint256) external returns (bool)"], wallet.signer);
+      const installmentEscrow = new ethers.Contract(CONTRACTS.InstallmentEscrow, INSTALLMENT_ESCROW_ABI, wallet.signer);
       setTxStatus("Approving token...");
-      await waitForTx(await token.approve(CONTRACTS.DealEscrow, inst.amount), wallet.provider!);
+      await waitForTx(await token.approve(CONTRACTS.InstallmentEscrow, inst.amount), wallet.provider!);
       setTxStatus(`Paying installment ${index + 1}...`);
-      await waitForTx(await dealEscrow.payInstallment(d.id, index), wallet.provider!);
+      await waitForTx(await installmentEscrow.payInstallment(d.id, index), wallet.provider!);
       setTxStatus(`Installment ${index + 1} paid.`);
       await load();
     } catch (err: any) { setTxStatus(parseError(err)); }
