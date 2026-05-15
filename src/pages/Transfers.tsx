@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
+import { parseError } from "../utils/parseError";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS, EURC_ADDRESS } from "../config/contracts";
 import { PLAYER_REGISTRY_ABI, TRANSFER_ESCROW_ABI, DEAL_ESCROW_ABI, TRANSFER_WINDOW_ABI } from "../config/abis";
