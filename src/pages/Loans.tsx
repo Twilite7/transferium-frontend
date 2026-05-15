@@ -71,7 +71,7 @@ export function Loans({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const LEAGUE_ROLE = await loanEscrow.LEAGUE_ROLE();
       setIsLeague(wallet.address ? await loanEscrow.hasRole(LEAGUE_ROLE, wallet.address) : false);
 
-      const total = await registry.totalSupply();
+      const total = await registry.totalPlayers();
       const pList: Player[] = [];
       for (let i = 1n; i <= total; i++) {
         try { const p = await registry.getPlayer(i); pList.push({ id: i, name: p.name, currentClub: p.currentClub }); } catch {}
