@@ -20,15 +20,15 @@ export const ARC_TESTNET = {
 // I export both shapes — CONTRACTS for existing ethers.js pages,
 // CONTRACT_ADDRESSES for new wagmi hooks
 export const CONTRACTS = {
-  PlayerRegistry: '0x1aFCB3929E653ACdaCfDeAf2CfcfF083B194F962',
-  TransferWindow: '0x8b367cCC24B3fA32055979699f1b142aD733E211',
+  PlayerRegistry: '0xE4FC0791dee7607d0Ba86DB6407091e6e3aDA653',
+  TransferWindow: '0xefF8d17a2569338bbFFFa67E43Efd1d749aEEDb1',
   InstallmentEscrow: '0xdB7A293DCBb26c93831B9a6B81f286FA9B4E34a2',
-  LoanEscrow:     '0xcdd0C57C2BBae90Cb1144fA05b43bA2d32aa7635',
-  DealEscrow:     '0xbF5E8950d52090DEd2C0f81727FD93829728cB59',
-  TransferEscrow: '0x445B52f961Fde3A6eD60c43aC3127Fc460674B99',
-  ReleaseEscrow:  '0xBEB694f9872D38B11Eb130671a38f468221dD040',
-  SwapEscrow:     '0x814ADC38204b0565cFd9331EFD681076c78832BA',
-  FreeTransfer:   '0xc908EF3503581d183eae9721025860f84D15CFF6',
+  LoanEscrow:     '0xE2902A960A95Ce78edf02d1b8e32dceE78f911Be',
+  DealEscrow:     '0x75cE6231E68455fe32FB3D59Ad4ca422dDE935e3',
+  TransferEscrow: '0x117AfF9660c2f0A577fd48b8190a4c8cE516570c',
+  ReleaseEscrow:  '0x807D1Dcbf099FB4B7ef047374a62E617f83A9D8c',
+  SwapEscrow:     '0x90A5112cB55422DA458708F5C8463cEdac354888',
+  FreeTransfer:   '0xDBfB821513032B2b38971a89C7A27D32a43e7Aa9',
 } as const
 
 export const CONTRACT_ADDRESSES = {
