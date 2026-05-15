@@ -58,7 +58,9 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
   const [selectedPlayer, setSelectedPlayer]   = useState<ListedPlayer | null>(null)
   const [selectedOffer, setSelectedOffer]     = useState<Offer | null>(null)
   const [txStatus, setTxStatus]               = useState<string | null>(null)
-  const [tab, setTab]                         = useState<"market" | "offers">("market")
+  const [tab, setTab]                         = useState<"market" | "offers" | "league">("market")
+  const [isLeague, setIsLeague]               = useState(false)
+  const [leagueOffers, setLeagueOffers]       = useState<{ offer: Offer; bids: Bid[] }[]>([])
 
   // Offer form
   const [offerForm, setOfferForm] = useState({
@@ -151,6 +153,41 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       }
       setMyOffers(offers)
       setOfferBids(bidsMap)
+      // League queue — all offers with active bids
+      const LEAGUE_ROLE = await escrow.LEAGUE_ROLE()
+      const leagueCheck = wallet.address ? await escrow.hasRole(LEAGUE_ROLE, wallet.address) : false
+      setIsLeague(leagueCheck)
+      if (leagueCheck) {
+        const lOffers: { offer: Offer; bids: Bid[] }[] = []
+        for (let i = 1; i <= Number(totalOffers); i++) {
+          try {
+            const o = await escrow.getOffer(i)
+            if (!o.exists) continue
+            const bids = await escrow.getAllBids(i)
+            const activeBids = bids.filter((b: any) => Number(b.status) >= 1 && Number(b.status) <= 3)
+            if (activeBids.length === 0) continue
+            let playerName = `Player #${o.playerId}`
+            try { const p = await registry.getPlayer(o.playerId); playerName = p.name } catch {}
+            lOffers.push({
+              offer: {
+                id: BigInt(i), playerId: o.playerId, playerName,
+                sellingClub: o.sellingClub, paymentToken: o.paymentToken,
+                askingPrice: o.askingPrice, sellOnBps: o.sellOnBps,
+                sellerAgentBps: o.sellerAgentBps,
+                minimumHijackIncrementBps: o.minimumHijackIncrementBps,
+                activeNegotiations: o.activeNegotiations, exists: o.exists,
+              },
+              bids: activeBids.map((b: any) => ({
+                offerId: b.offerId, buyingClub: b.buyingClub,
+                transferFee: b.transferFee, signingBonusMonths: b.signingBonusMonths,
+                buyerAgentBps: b.buyerAgentBps, status: Number(b.status),
+                roundNumber: b.roundNumber, isCounterFromSeller: b.isCounterFromSeller,
+              })),
+            })
+          } catch {}
+        }
+        setLeagueOffers(lOffers)
+      }
 
       // I load my deals (as buying or selling club) from DealEscrow
       const deals: Deal[] = []
@@ -271,6 +308,26 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
     }
   }
 
+  async function resolveDeadlock(dealId: bigint, op: number, newFee: string) {
+    if (!wallet.signer) return
+    setTxStatus("Resolving deadlock...")
+    try {
+      const escrow = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.signer)
+      await (await escrow.resolveDeadlock(dealId, op, newFee ? ethers.parseUnits(newFee, 6) : 0n)).wait()
+      setTxStatus("Deadlock resolved."); await loadAll()
+    } catch (err: any) { setTxStatus(parseError(err)) }
+  }
+
+  async function processNewWindow() {
+    if (!wallet.signer) return
+    setTxStatus("Processing new window...")
+    try {
+      const escrow = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.signer)
+      await (await escrow.processNewWindow([])).wait()
+      setTxStatus("Window processed."); await loadAll()
+    } catch (err: any) { setTxStatus(parseError(err)) }
+  }
+
   const TabBtn = ({ t, label }: { t: typeof tab; label: string }) => (
     <button onClick={() => setTab(t)} style={{
       background:    tab === t ? "var(--bg-hover)" : "transparent",
@@ -308,6 +365,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
           <div style={{ display: "flex", gap: "0.25rem", marginBottom: "1.5rem" }}>
             <TabBtn t="market" label="MARKET" />
             <TabBtn t="offers" label={`MY OFFERS (${myOffers.length})`} />
+            {isLeague && <TabBtn t="league" label={`LEAGUE QUEUE (${leagueOffers.length})`} />}
           </div>
 
           {loading && <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-dim)", fontSize: "0.8rem" }}>Loading...</p>}
@@ -542,6 +600,58 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* ── LEAGUE TAB ── */}
+          {tab === "league" && !loading && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.1em" }}>
+                  OFFERS WITH ACTIVE NEGOTIATIONS
+                </p>
+                <button onClick={processNewWindow} style={{ ...btn("var(--gold)"), fontSize: "0.65rem", padding: "5px 14px" }}>
+                  PROCESS NEW WINDOW
+                </button>
+              </div>
+              {leagueOffers.length === 0 ? (
+                <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "4rem", textAlign: "center", background: "var(--bg-card)" }}>
+                  <p style={{ fontFamily: "var(--font-display)", fontSize: "2rem", color: "var(--text-dim)" }}>NO ACTIVE NEGOTIATIONS</p>
+                </div>
+              ) : leagueOffers.map(({ offer, bids }) => (
+                <div key={offer.id.toString()} style={{ background: "var(--bg-card)", border: "1px solid var(--border-accent)", borderRadius: "var(--radius-lg)", padding: "1.25rem 1.5rem", marginBottom: "0.75rem" }}>
+                  <p style={{ fontFamily: "var(--font-body)", fontSize: "0.95rem", marginBottom: "0.5rem" }}>
+                    {offer.playerName} — <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>
+                      €{(Number(offer.askingPrice) / 1e6).toLocaleString()}
+                    </span>
+                  </p>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", marginBottom: "0.75rem" }}>
+                    Offer #{offer.id.toString()} · {bids.length} active bid{bids.length !== 1 ? "s" : ""}
+                  </p>
+                  {bids.map((bid, idx) => {
+                    const BID_STATUS = ["NONE","ACTIVE","NEGOTIATING","ACCEPTED","REJECTED","WITHDRAWN"]
+                    return (
+                      <div key={idx} style={{ borderTop: "1px solid var(--border)", paddingTop: "0.75rem", marginTop: "0.5rem" }}>
+                        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
+                          {bid.buyingClub.slice(0,10)}...{bid.buyingClub.slice(-6)} ·
+                          €{(Number(bid.transferFee) / 1e6).toLocaleString()} ·
+                          Round {bid.roundNumber.toString()} · {BID_STATUS[bid.status]}
+                          {bid.isCounterFromSeller ? " · Waiting on buyer" : " · Waiting on seller"}
+                        </p>
+                        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
+                          <button onClick={() => acceptBid(offer.id, bid.buyingClub)} style={btn("var(--green)", "rgba(45,206,137,0.1)")}>ACCEPT BID</button>
+                          <button onClick={() => rejectBid(offer.id, bid.buyingClub)} style={btn("var(--red)")}>REJECT BID</button>
+                          <button onClick={() => {
+                            const fee = window.prompt("Resolve fee (€, leave blank to cancel):")
+                            const op  = window.prompt("Op: 0=cancel, 1=force seller fee, 2=force buyer fee") ?? "0"
+                            if (fee !== null) resolveDeadlock(offer.id, parseInt(op), fee)
+                          }} style={btn("var(--text-secondary)")}>RESOLVE DEADLOCK</button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
             </div>
           )}
 
