@@ -175,6 +175,11 @@
     },
     {
       "inputs": [],
+      "name": "NoSigningBonusToRescue",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "NotBuyingClub",
       "type": "error"
     },
@@ -227,6 +232,11 @@
     {
       "inputs": [],
       "name": "SigningBonusAlreadyClaimed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "SigningBonusNotExpired",
       "type": "error"
     },
     {
@@ -864,6 +874,31 @@
         }
       ],
       "name": "SigningBonusClaimed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "dealId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "SigningBonusRescued",
       "type": "event"
     },
     {
@@ -2079,6 +2114,24 @@
         }
       ],
       "name": "renounceRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "dealId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        }
+      ],
+      "name": "rescueSigningBonus",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
