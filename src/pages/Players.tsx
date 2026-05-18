@@ -142,7 +142,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   }
 
   async function registerPlayer() {
-    if (!wallet.signer) return;
+    if (!wallet.signer) { setTxStatus("Wallet not connected."); return; }
     setTxStatus("Submitting...");
     try {
       const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
