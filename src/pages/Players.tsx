@@ -143,7 +143,8 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
 
   async function registerPlayer() {
     if (!wallet.signer) { setTxStatus("Wallet not connected."); return; }
-    setTxStatus("Submitting...");
+    setTxStatus(null);
+    setTimeout(() => setTxStatus("Submitting..."), 50);
     try {
       const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
       const expiry   = Math.floor(new Date(form.contractExpiry).getTime() / 1000) + 86400;
