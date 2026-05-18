@@ -101,9 +101,12 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const escrow     = new ethers.Contract(CONTRACTS.TransferEscrow,  TRANSFER_ESCROW_ABI, wallet.signer);
       const loanEscrow = new ethers.Contract(CONTRACTS.LoanEscrow,      LOAN_ESCROW_ABI,     wallet.signer);
       const CLUB_ROLE  = await registry.CLUB_ROLE();
-      await waitForTx(await registry.revokeRole(CLUB_ROLE, address),   wallet.provider!);
-      await waitForTx(await escrow.revokeRole(CLUB_ROLE, address),     wallet.provider!);
-      await waitForTx(await loanEscrow.revokeRole(CLUB_ROLE, address), wallet.provider!);
+      for (const [contract, label] of [[registry, "registry"], [escrow, "escrow"], [loanEscrow, "loanEscrow"]] as const) {
+        const hasRole = await contract.hasRole(CLUB_ROLE, address);
+        if (hasRole) {
+          await waitForTx(await contract.revokeRole(CLUB_ROLE, address), wallet.provider!);
+        }
+      }
       setStatus("Club access revoked on all contracts.");
       setClubs(prev => prev.map(c => c.address.toLowerCase() === address.toLowerCase() ? { ...c, hasRole: false } : c));
     } catch (err: any) {
