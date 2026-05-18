@@ -101,7 +101,7 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const escrow     = new ethers.Contract(CONTRACTS.TransferEscrow,  TRANSFER_ESCROW_ABI, wallet.signer);
       const loanEscrow = new ethers.Contract(CONTRACTS.LoanEscrow,      LOAN_ESCROW_ABI,     wallet.signer);
       const CLUB_ROLE  = await registry.CLUB_ROLE();
-      for (const [contract, label] of [[registry, "registry"], [escrow, "escrow"], [loanEscrow, "loanEscrow"]] as const) {
+      for (const [contract] of [[registry], [escrow], [loanEscrow]] as const) {
         const hasRole = await contract.hasRole(CLUB_ROLE, address);
         if (hasRole) {
           await waitForTx(await contract.revokeRole(CLUB_ROLE, address), wallet.provider!);
