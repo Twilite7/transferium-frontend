@@ -150,13 +150,16 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const salary   = form.weeklySalary ? ethers.parseUnits(form.weeklySalary, 6) : 0n;
       // I pass portraitCID as empty string — club can update via setPortrait after registration
       const regFee   = await registry.registrationFee();
+      const fifaIdBytes = form.fifaId?.trim()
+        ? ethers.keccak256(ethers.toUtf8Bytes(form.fifaId.trim()))
+        : ethers.ZeroHash;
       const tx       = await registry.registerPlayer(
-        form.name, form.position, form.nationality, expiry, salary, "", { value: regFee }
+        form.name, form.position, form.nationality, expiry, salary, "", fifaIdBytes, { value: regFee }
       );
       setTxStatus("Waiting for confirmation...");
       await waitForTx(tx, wallet.provider!);
       setTxStatus("Player registered.");
-      setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "" });
+      setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: "" });
       await loadPlayers();
     } catch (err: any) {
       setTxStatus(parseError(err));
