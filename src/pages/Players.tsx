@@ -63,7 +63,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [listingId, setListingId]       = useState<bigint | null>(null);
   const [listingPrice, setListingPrice] = useState("");
   const [form, setForm] = useState({
-    name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: ""
+    name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: ""
   });
 
   useEffect(() => {
