@@ -163,7 +163,8 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       await loadPlayers();
     } catch (err: any) {
       console.error("registerPlayer error:", err);
-      setTxStatus(parseError(err));
+      const msg = err?.reason ?? err?.data?.message ?? err?.message ?? JSON.stringify(err);
+      setTxStatus("Error: " + msg);
     }
   }
 
