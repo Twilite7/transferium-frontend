@@ -99,7 +99,9 @@ export function useSubmitBid() {
     sellerAgent: `0x${string}`
     buyerAgentBps: number
     buyerAgent: `0x${string}`
-    salaryGuaranteeMonths: number
+    signingBonusMonths: number
+    installmentAmounts: bigint[]
+    installmentDueDates: bigint[]
   }) {
     writeContract({
       ...transferEscrowContract,
@@ -113,7 +115,9 @@ export function useSubmitBid() {
         params.sellerAgent,
         params.buyerAgentBps,
         params.buyerAgent,
-        params.salaryGuaranteeMonths,
+        params.signingBonusMonths,
+        params.installmentAmounts,
+        params.installmentDueDates,
       ],
     })
   }

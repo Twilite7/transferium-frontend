@@ -5,7 +5,7 @@ import { dealEscrowContract } from '../config'
 export function useDeal(dealId: bigint | undefined) {
   return useReadContract({
     ...dealEscrowContract,
-    functionName: 'getDeal',
+    functionName: 'getDealView',
     args: dealId ? [dealId] : undefined,
     query: { enabled: !!dealId },
   })

@@ -41,7 +41,7 @@ export const TRANSFER_ESCROW_ABI = [
   "function rejectBid(uint256 offerId, address buyingClub) external",
   "function counterBid(uint256 offerId, address buyingClub, uint256 newTransferFee, uint256 newSellOnBps, address newSellOnRecipient, uint256 newSellerAgentBps, address newSellerAgent) external",
   // Bid flow
-  "function submitBid(uint256 offerId, uint256 transferFee, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 buyerAgentBps, address buyerAgent, uint256 signingBonusMonths) external",
+  "function submitBid(uint256 offerId, uint256 transferFee, uint256 sellOnBps, address sellOnRecipient, uint256 sellerAgentBps, address sellerAgent, uint256 buyerAgentBps, address buyerAgent, uint256 signingBonusMonths, uint256[] installmentAmounts, uint256[] installmentDueDates) external",
   "function updateBid(uint256 offerId, uint256 newTransferFee, uint256 newSellOnBps, address newSellOnRecipient, uint256 newSellerAgentBps, address newSellerAgent, uint256 newBuyerAgentBps, address newBuyerAgent, uint256 newSalaryGuaranteeMonths) external",
   "function withdrawBid(uint256 offerId) external",
   // Hijack
