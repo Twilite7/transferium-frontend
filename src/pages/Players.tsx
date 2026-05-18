@@ -162,6 +162,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: "" });
       await loadPlayers();
     } catch (err: any) {
+      console.error("registerPlayer error:", err);
       setTxStatus(parseError(err));
     }
   }
