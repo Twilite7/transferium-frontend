@@ -148,6 +148,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     try {
       const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
       const expiry   = Math.floor(new Date(form.contractExpiry).getTime() / 1000) + 86400;
+      console.log("registerPlayer args:", { name: form.name, position: form.position, nationality: form.nationality, expiry, salary: salary.toString(), fifaId: form.fifaId, regFee: regFee.toString() });
       const salary   = form.weeklySalary ? ethers.parseUnits(form.weeklySalary, 6) : 0n;
       // I pass portraitCID as empty string — club can update via setPortrait after registration
       const regFee   = await registry.registrationFee();
