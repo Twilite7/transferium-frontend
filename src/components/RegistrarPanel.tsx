@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { waitForTx } from "../utils/waitForTx";
 import { parseError } from "../utils/parseError";
@@ -80,6 +80,30 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
   const [permitHash, setPermitHash]     = useState("");
   const [playerWallet, setPlayerWallet] = useState("");
   const [expanded, setExpanded]         = useState<string | null>(null);
+  const [playerInfo, setPlayerInfo]     = useState<{
+    name: string; position: string; nationality: string;
+    contractExpiry: bigint; weeklySalary: bigint; club: string; fifaId: string;
+  } | null>(null);
+
+  useEffect(() => {
+    async function fetchInfo() {
+      if (!wallet.provider) return;
+      try {
+        const registry = new ethers.Contract(
+          CONTRACTS.PlayerRegistry,
+          ["function getPlayer(uint256) view returns (tuple(string name,string position,string nationality,uint256 contractExpiry,uint256 weeklySalary,string portraitCID,bytes32 fifaId,address club,bool verified))"],
+          wallet.provider
+        );
+        const p = await registry.getPlayer(playerId);
+        setPlayerInfo({
+          name: p.name, position: p.position, nationality: p.nationality,
+          contractExpiry: p.contractExpiry, weeklySalary: p.weeklySalary,
+          club: p.club, fifaId: p.fifaId,
+        });
+      } catch {}
+    }
+    fetchInfo();
+  }, [playerId, wallet.provider]);
 
   function getRegistry() {
     if (!wallet.signer) throw new Error("Wallet not connected");
@@ -213,6 +237,27 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
       <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--gold)", letterSpacing: "0.1em", marginBottom: "0.75rem" }}>
         REGISTRAR ACTIONS — PLAYER #{playerId.toString()}
       </p>
+
+      {playerInfo && (
+        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem", marginBottom: "0.75rem" }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.6rem" }}>PLAYER INFORMATION</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem 1.5rem" }}>
+            {[
+              ["NAME",             playerInfo.name],
+              ["POSITION",         playerInfo.position],
+              ["NATIONALITY",      playerInfo.nationality],
+              ["CLUB",             playerInfo.club.slice(0,10) + "..." + playerInfo.club.slice(-6)],
+              ["CONTRACT EXPIRY",  new Date(Number(playerInfo.contractExpiry) * 1000).toLocaleDateString()],
+              ["WEEKLY SALARY",    playerInfo.weeklySalary > 0n ? ethers.formatUnits(playerInfo.weeklySalary, 6) + " USDC" : "—"],
+            ].map(([label, val]) => (
+              <div key={label}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--text-dim)", letterSpacing: "0.08em", display: "block" }}>{label}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-primary)" }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={sectionStyle("verify")}>
         {sectionHeader("verify", "Step 1: Player Verification", player.isVerified)}
