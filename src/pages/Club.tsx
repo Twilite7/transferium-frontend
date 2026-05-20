@@ -166,7 +166,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       }
       const tx       = await registry.registerPlayer(
         form.name, form.position, form.nationality, expiry, salary, cid,
-        form.fifaId ? ethers.encodeBytes32String(form.fifaId.slice(0, 31)) : ethers.ZeroHash,
+        form.fifaId?.trim() ? ethers.keccak256(ethers.toUtf8Bytes(form.fifaId.trim())) : ethers.ZeroHash,
         { value: regFee }
       );
       setTxStatus("Waiting for confirmation...");

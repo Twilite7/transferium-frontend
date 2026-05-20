@@ -2,7 +2,7 @@
 // The full JSON ABIs (for wagmi hooks) live in src/config/*.json
 
 export const PLAYER_REGISTRY_ABI = [
-  "function registerPlayer(string name, string position, string nationality, uint256 contractExpiry, uint256 weeklySalary, string portraitCID) external payable returns (uint256)",
+  "function registerPlayer(string name, string position, string nationality, uint256 contractExpiry, uint256 weeklySalary, string portraitCID, bytes32 fifaId) external payable returns (uint256)",
   "function setPortrait(uint256 playerId, string cid) external",
   "function listPlayer(uint256 playerId, uint256 askingPrice) external payable",
   "function delistPlayer(uint256 playerId) external",
