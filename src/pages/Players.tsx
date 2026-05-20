@@ -60,6 +60,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [error, setError]               = useState<string | null>(null);
   const [txStatus, setTxStatus]         = useState<string | null>(null);
   const [isRegistrar, setIsRegistrar]   = useState(false);
+  const [isClub, setIsClub]             = useState(false);
   const [listingId, setListingId]       = useState<bigint | null>(null);
   const [listingPrice, setListingPrice] = useState("");
   const [form, setForm] = useState({
@@ -77,7 +78,9 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     try {
       const registry       = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
       const REGISTRAR_ROLE = await registry.REGISTRAR_ROLE();
+      const CLUB_ROLE       = await registry.CLUB_ROLE();
       setIsRegistrar(await registry.hasRole(REGISTRAR_ROLE, wallet.address));
+      setIsClub(await registry.hasRole(CLUB_ROLE, wallet.address));
     } catch {}
   }
 
@@ -549,7 +552,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                         </div>
                       </td>
                     </tr>
-                    {isRegistrar && (
+                    {(isRegistrar || isClub) && (
                       <tr key={`reg-${p.id?.toString() ?? String(i)}`} style={{ borderBottom: isLast ? "none" : "1px solid var(--border)" }}>
                         <td colSpan={8} style={{ padding: "0 1.25rem 1rem" }}>
                           <RegistrarPanel
