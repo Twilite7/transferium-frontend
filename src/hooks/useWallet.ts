@@ -98,9 +98,16 @@ export function useWallet() {
 
   useEffect(() => {
     if (!window.ethereum) return;
-    const handleAccountsChanged = (accounts: string[]) => {
-      if (accounts.length === 0) disconnect();
-      else setState(prev => ({ ...prev, address: accounts[0] }));
+    const handleAccountsChanged = async (accounts: string[]) => {
+      if (accounts.length === 0) { disconnect(); return; }
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum!);
+        const signer   = await provider.getSigner();
+        const address  = await signer.getAddress();
+        const network  = await provider.getNetwork();
+        const chainId  = Number(network.chainId);
+        setState({ address, provider, signer, chainId, isConnected: true, isCorrectNetwork: chainId === ARC_TESTNET.chainId });
+      } catch {}
     };
     const handleChainChanged = () => window.location.reload();
     window.ethereum.on("accountsChanged", handleAccountsChanged);
