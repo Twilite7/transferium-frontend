@@ -20,7 +20,7 @@ export const ARC_TESTNET = {
 // I export both shapes — CONTRACTS for existing ethers.js pages,
 // CONTRACT_ADDRESSES for new wagmi hooks
 export const CONTRACTS = {
-  PlayerRegistry: '0x983B1e2e39C534762841932b526D3f145110b38A',
+  PlayerRegistry: '0x1aFCB3929E653ACdaCfDeAf2CfcfF083B194F962',
   TransferWindow: '0xe27785f3Be6201321fd83ee0Bf2a81FADDA754d8',
   InstallmentEscrow: '0x3420e21dD51e9e15DB23a5105681187e68B1fAb7',
   LoanEscrow:     '0x14c296D7464CaFe8f8bA7Ac22739b9B2e359D865',
