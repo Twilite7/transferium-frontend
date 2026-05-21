@@ -82,7 +82,7 @@ export function Special({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     setLoading(true);
     try {
       const swapEscrow = new ethers.Contract(CONTRACTS.SwapEscrow, SWAP_ESCROW_ABI, wallet.provider);
-      const ftEscrow   = new ethers.Contract(CONTRACTS.FreeTransfer, FREE_TRANSFER_ESCROW_ABI, wallet.provider);
+      const ftEscrow   = new ethers.Contract(CONTRACTS.FreeTransferEscrow, FREE_TRANSFER_ESCROW_ABI, wallet.provider);
       const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
 
       // Load swaps
@@ -149,7 +149,7 @@ export function Special({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     if (!wallet.signer) return;
     setTxStatus("Proposing pre-contract...");
     try {
-      const escrow = new ethers.Contract(CONTRACTS.FreeTransfer, FREE_TRANSFER_ESCROW_ABI, wallet.signer);
+      const escrow = new ethers.Contract(CONTRACTS.FreeTransferEscrow, FREE_TRANSFER_ESCROW_ABI, wallet.signer);
       await waitForTx(await escrow.proposePreContract(
         BigInt(ftForm.playerId), EURC,
         ethers.parseUnits(ftForm.signingBonus || "0", 6),
@@ -398,7 +398,7 @@ export function Special({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                     <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
                       {ft.state === 1 && (
                         <button onClick={() => swapAction(async () => {
-                          const e = new ethers.Contract(CONTRACTS.FreeTransfer, FREE_TRANSFER_ESCROW_ABI, wallet.signer!);
+                          const e = new ethers.Contract(CONTRACTS.FreeTransferEscrow, FREE_TRANSFER_ESCROW_ABI, wallet.signer!);
                           setTxStatus("Withdrawing proposal...");
                           await waitForTx(await e.withdrawPreContract(ft.id), wallet.provider!);
                           setTxStatus("Proposal withdrawn.");
@@ -406,11 +406,11 @@ export function Special({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                       )}
                       {ft.state === 2 && (
                         <button onClick={() => swapAction(async () => {
-                          const e = new ethers.Contract(CONTRACTS.FreeTransfer, FREE_TRANSFER_ESCROW_ABI, wallet.signer!);
+                          const e = new ethers.Contract(CONTRACTS.FreeTransferEscrow, FREE_TRANSFER_ESCROW_ABI, wallet.signer!);
                           setTxStatus("Locking deposit...");
                           if (ft.deposit > 0n) {
                             const token = new ethers.Contract(ft.paymentToken, ["function approve(address,uint256) external returns (bool)"], wallet.signer!);
-                            await waitForTx(await token.approve(CONTRACTS.FreeTransfer, ft.deposit), wallet.provider!);
+                            await waitForTx(await token.approve(CONTRACTS.FreeTransferEscrow, ft.deposit), wallet.provider!);
                           }
                           await waitForTx(await e.lockDeposit(ft.id), wallet.provider!);
                           setTxStatus("Deposit locked.");

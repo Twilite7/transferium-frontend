@@ -31,3 +31,42 @@ export const DEAL_ESCROW_ABI     = DealEscrowABI.abi
 export const LOAN_ESCROW_ABI     = LoanEscrowABI.abi
 export const RELEASE_ESCROW_ABI  = ReleaseEscrowABI.abi
 export const INSTALLMENT_ESCROW_ABI = InstallmentEscrowABI.abi
+
+export const ARC_TESTNET = {
+  chainId:  5042002,
+  name:     'ARC Testnet',
+  rpcUrl:   'https://rpc.testnet.arc.network',
+  currency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
+  explorer: 'https://explorer.testnet.arc.network',
+}
+
+export const EURC_ADDRESS = CONTRACTS.eurcAddress
+export const USDC_ADDRESS = CONTRACTS.usdcAddress
+
+export const ipfsUrl = (cid: string) =>
+  cid ? `https://ipfs.io/ipfs/${cid}` : ''
+
+export const dealEscrowContract = {
+  address: CONTRACTS.DealEscrow as `0x${string}`,
+  abi: DealEscrowABI.abi,
+}
+
+export const loanEscrowContract = {
+  address: CONTRACTS.LoanEscrow as `0x${string}`,
+  abi: LoanEscrowABI.abi,
+}
+
+export const playerRegistryContract = {
+  address: CONTRACTS.PlayerRegistry as `0x${string}`,
+  abi: PlayerRegistryABI.abi,
+}
+
+export const transferEscrowContract = {
+  address: CONTRACTS.TransferEscrow as `0x${string}`,
+  abi: TransferEscrowABI.abi,
+}
+
+export const transferWindowContract = {
+  address: CONTRACTS.TransferWindow as `0x${string}`,
+  abi: [] as const,
+}
