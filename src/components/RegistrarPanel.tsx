@@ -82,7 +82,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
   const [expanded, setExpanded]         = useState<string | null>(null);
   const [playerInfo, setPlayerInfo]     = useState<{
     name: string; position: string; nationality: string;
-    contractExpiry: bigint; weeklySalary: bigint; club: string; fifaId: string;
+    contractExpiry: bigint; weeklySalary: bigint; club: string; fifaId: string; clubName: string;
   } | null>(null);
 
   useEffect(() => {
@@ -91,14 +91,19 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
       try {
         const registry = new ethers.Contract(
           CONTRACTS.PlayerRegistry,
-          ["function getPlayer(uint256) view returns (tuple(string name,string position,string nationality,uint256 contractExpiry,uint256 weeklySalary,string portraitCID,bytes32 fifaId,address club,bool verified))"],
+          ["function getPlayer(uint256) view returns (tuple(string name,string position,string nationality,uint256 contractExpiry,uint256 weeklySalary,string portraitCID,bytes32 fifaId,address club,bool verified))", "function getClubName(address) view returns (string)"],
           wallet.provider
         );
         const p = await registry.getPlayer(playerId);
+        let clubName = "";
+        try {
+          const name = await registry.getClubName(p.club);
+          clubName = name || "";
+        } catch {}
         setPlayerInfo({
           name: p.name, position: p.position, nationality: p.nationality,
           contractExpiry: p.contractExpiry, weeklySalary: p.weeklySalary,
-          club: p.club, fifaId: p.fifaId,
+          club: p.club, fifaId: p.fifaId, clubName,
         });
       } catch {}
     }
@@ -246,7 +251,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
               ["NAME",             playerInfo.name],
               ["POSITION",         playerInfo.position],
               ["NATIONALITY",      playerInfo.nationality],
-              ["CLUB",             playerInfo.club.slice(0,10) + "..." + playerInfo.club.slice(-6)],
+              ["CLUB",             (playerInfo.clubName ? playerInfo.clubName + " — " : "") + playerInfo.club.slice(0,10) + "..." + playerInfo.club.slice(-6)],
               ["CONTRACT EXPIRY",  new Date(Number(playerInfo.contractExpiry) * 1000).toLocaleDateString()],
               ["WEEKLY SALARY",    playerInfo.weeklySalary > 0n ? ethers.formatUnits(playerInfo.weeklySalary, 6) + " USDC" : "—"],
             ].map(([label, val]) => (
