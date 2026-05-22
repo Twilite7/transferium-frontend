@@ -82,11 +82,12 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       const publicProvider = new ethers.JsonRpcProvider("https://rpc.testnet.arc.network");
       const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, publicProvider);
       const CLUB_ROLE = await registry.CLUB_ROLE();
+      const START_BLOCK = 34500000;
       const filter_granted = registry.filters.RoleGranted(CLUB_ROLE, null, null);
       const filter_revoked = registry.filters.RoleRevoked(CLUB_ROLE, null, null);
       const [granted, revoked] = await Promise.all([
-        registry.queryFilter(filter_granted),
-        registry.filters.RoleRevoked ? registry.queryFilter(filter_revoked) : Promise.resolve([]),
+        registry.queryFilter(filter_granted, START_BLOCK),
+        registry.queryFilter(filter_revoked, START_BLOCK),
       ]);
       const active = new Set<string>(granted.map((e: any) => e.args.account.toLowerCase()));
       revoked.forEach((e: any) => active.delete(e.args.account.toLowerCase()));
