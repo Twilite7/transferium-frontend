@@ -109,9 +109,13 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       revokedFiltered.forEach((log: any) => active.delete(decode(log)));
       const list: Club[] = await Promise.all(
         Array.from(active).map(async (addr) => {
+          const r = new ethers.Contract(CONTRACTS.PlayerRegistry, [
+            "function getClubName(address) view returns (string)",
+            "function balanceOf(address) view returns (uint256)",
+          ], publicProvider);
           const [name, bal] = await Promise.all([
-            registry.getClubName(addr).catch(() => ""),
-            registry.balanceOf(addr).catch(() => 0n),
+            r.getClubName(addr).catch(() => ""),
+            r.balanceOf(addr).catch(() => 0n),
           ]);
           return { address: addr, name: name || "Unnamed Club", players: Number(bal) };
         })
