@@ -77,6 +77,7 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
     }
   }
 
+  // v2
   async function loadClubs() {
     try {
       const publicProvider = new ethers.JsonRpcProvider("https://rpc.testnet.arc.network");
