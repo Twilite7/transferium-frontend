@@ -83,16 +83,24 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       const publicProvider = new ethers.JsonRpcProvider("https://rpc.testnet.arc.network");
       const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, publicProvider);
       const CLUB_ROLE = await registry.CLUB_ROLE();
-      const toBlock = await publicProvider.getBlockNumber();
-      const START_BLOCK = Math.max(toBlock - 9000, 43526900);
-      // I use topic hash directly to avoid ethers v6 filter compatibility issues
       const roleGrantedTopic = ethers.id("RoleGranted(bytes32,address,address)");
       const roleRevokedTopic = ethers.id("RoleRevoked(bytes32,address,address)");
       const paddedRole = ethers.zeroPadValue(CLUB_ROLE, 32);
-      const [grantedLogs, revokedLogs] = await Promise.all([
-        publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleGrantedTopic, paddedRole], fromBlock: START_BLOCK, toBlock }),
-        publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleRevokedTopic, paddedRole], fromBlock: START_BLOCK, toBlock }),
-      ]);
+      const DEPLOY_BLOCK = 43526900;
+      const CHUNK = 9000;
+      const toBlock = await publicProvider.getBlockNumber();
+      // I paginate in 9000-block chunks to stay within Arc RPC limits
+      const grantedLogs: any[] = [];
+      const revokedLogs: any[] = [];
+      for (let from = DEPLOY_BLOCK; from <= toBlock; from += CHUNK) {
+        const to = Math.min(from + CHUNK - 1, toBlock);
+        const [g, r] = await Promise.all([
+          publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleGrantedTopic, paddedRole], fromBlock: from, toBlock: to }),
+          publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleRevokedTopic, paddedRole], fromBlock: from, toBlock: to }),
+        ]);
+        grantedLogs.push(...g);
+        revokedLogs.push(...r);
+      }
       const decode = (log: any) => ethers.AbiCoder.defaultAbiCoder().decode(["address"], log.topics[2])[0].toLowerCase();
       const grantedFiltered = grantedLogs;
       const revokedFiltered = revokedLogs;
