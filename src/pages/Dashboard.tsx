@@ -83,12 +83,12 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       const publicProvider = new ethers.JsonRpcProvider("https://rpc.testnet.arc.network");
       const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, publicProvider);
       const CLUB_ROLE = await registry.CLUB_ROLE();
-      const START_BLOCK = 43526900;
+      const toBlock = await publicProvider.getBlockNumber();
+      const START_BLOCK = Math.max(toBlock - 9000, 43526900);
       // I use topic hash directly to avoid ethers v6 filter compatibility issues
       const roleGrantedTopic = ethers.id("RoleGranted(bytes32,address,address)");
       const roleRevokedTopic = ethers.id("RoleRevoked(bytes32,address,address)");
       const paddedRole = ethers.zeroPadValue(CLUB_ROLE, 32);
-      const toBlock = await publicProvider.getBlockNumber();
       const [grantedLogs, revokedLogs] = await Promise.all([
         publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleGrantedTopic, paddedRole], fromBlock: START_BLOCK, toBlock }),
         publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleRevokedTopic, paddedRole], fromBlock: START_BLOCK, toBlock }),
