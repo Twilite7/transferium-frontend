@@ -86,7 +86,7 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       const roleGrantedTopic = ethers.id("RoleGranted(bytes32,address,address)");
       const roleRevokedTopic = ethers.id("RoleRevoked(bytes32,address,address)");
       const paddedRole = ethers.zeroPadValue(CLUB_ROLE, 32);
-      const DEPLOY_BLOCK = 43526900;
+      const DEPLOY_BLOCK = 43600000;
       const CHUNK = 9000;
       const toBlock = await publicProvider.getBlockNumber();
       // I paginate in 9000-block chunks to stay within Arc RPC limits
@@ -111,11 +111,11 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
         Array.from(active).map(async (addr) => {
           const r = new ethers.Contract(CONTRACTS.PlayerRegistry, [
             "function getClubName(address) view returns (string)",
-            "function balanceOf(address) view returns (uint256)",
+            "function verifiedPlayerCount(address) view returns (uint256)",
           ], publicProvider);
           const [name, bal] = await Promise.all([
             r.getClubName(addr).catch(() => ""),
-            r.balanceOf(addr).catch(() => 0n),
+            r.verifiedPlayerCount(addr).catch(() => 0n),
           ]);
           return { address: addr, name: name || "Unnamed Club", players: Number(bal) };
         })
