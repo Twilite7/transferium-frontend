@@ -121,7 +121,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
               registrationContractHash: legalRaw.registrationContractHash,
             },
           });
-        } catch {}
+        } catch (e: any) { console.error(`Player #${i} load error:`, e?.message ?? e); }
       }
       setPlayers(loaded);
     } catch (err: any) {
