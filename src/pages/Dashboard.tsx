@@ -89,6 +89,7 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
         registry.queryFilter(filter_granted, START_BLOCK),
         registry.queryFilter(filter_revoked, START_BLOCK),
       ]);
+      console.log("loadClubs: granted", granted.length, "revoked", revoked.length);
       const active = new Set<string>(granted.map((e: any) => e.args.account.toLowerCase()));
       revoked.forEach((e: any) => active.delete(e.args.account.toLowerCase()));
       const list: Club[] = await Promise.all(
