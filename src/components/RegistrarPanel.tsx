@@ -75,7 +75,6 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
   const [status, setStatus]             = useState<string | null>(null);
   const [medHash, setMedHash]           = useState("");
   const [regHash, setRegHash]           = useState("");
-  const [idHash, setIdHash]             = useState("");
   const [tmsHash, setTmsHash]           = useState("");
   const [permitHash, setPermitHash]     = useState("");
   const [playerWallet, setPlayerWallet] = useState("");
@@ -321,7 +320,6 @@ if (!isValidBytes32(tmsHash))  { setStatus("Invalid FIFA TMS hash."); return; }
                 <div style={{ display: "grid", gap: "0.6rem", marginBottom: "0.75rem" }}>
                   {[
                     { key: "reg",    title: "REGISTRATION CONTRACT HASH", value: regHash,    set: setRegHash,    required: true  },
-                    { key: "id",     title: "IDENTITY DOCUMENT HASH",     value: idHash,     set: setIdHash,     required: true  },
                     { key: "tms",    title: "FIFA TMS REFERENCE HASH",    value: tmsHash,    set: setTmsHash,    required: true  },
                     { key: "permit", title: "WORK PERMIT HASH (optional)", value: permitHash, set: setPermitHash, required: false },
                   ].map(f => (
@@ -344,9 +342,9 @@ if (!isValidBytes32(tmsHash))  { setStatus("Invalid FIFA TMS hash."); return; }
                 </div>
                 <button
                   onClick={submitLegalDocuments}
-                  disabled={!isValidBytes32(regHash) || !isValidBytes32(idHash) || !isValidBytes32(tmsHash)}
+                  disabled={!isValidBytes32(regHash) || !isValidBytes32(tmsHash)}
                   style={btn("var(--gold)", "rgba(201,168,76,0.08)",
-                    !isValidBytes32(regHash) || !isValidBytes32(idHash) || !isValidBytes32(tmsHash))}>
+                    !isValidBytes32(regHash) || !isValidBytes32(tmsHash))}>
                   SUBMIT DOCUMENTS
                 </button>
               </>
