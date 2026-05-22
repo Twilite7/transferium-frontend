@@ -2,8 +2,6 @@ import PlayerRegistryABI from './PlayerRegistry.json'
 import TransferEscrowABI from './TransferEscrow.json'
 import DealEscrowABI from './DealEscrow.json'
 import LoanEscrowABI from './LoanEscrow.json'
-import ReleaseEscrowABI from './ReleaseEscrow.json'
-import InstallmentEscrowABI from './InstallmentEscrow.json'
 
 export const CONTRACTS = {
   PlayerRegistry:     '0x5212d6719883a45B4Cc1Fb32Ab04EC1c5ABdb200',
@@ -64,9 +62,4 @@ export const transferWindowContract = {
   abi: [] as const,
 }
 
-export const PLAYER_REGISTRY_ABI = PlayerRegistryABI.abi
-export const TRANSFER_ESCROW_ABI = TransferEscrowABI.abi
-export const DEAL_ESCROW_ABI     = DealEscrowABI.abi
-export const LOAN_ESCROW_ABI     = LoanEscrowABI.abi
-export const RELEASE_ESCROW_ABI  = ReleaseEscrowABI.abi
-export const INSTALLMENT_ESCROW_ABI = InstallmentEscrowABI.abi
+
