@@ -88,9 +88,10 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       const roleGrantedTopic = ethers.id("RoleGranted(bytes32,address,address)");
       const roleRevokedTopic = ethers.id("RoleRevoked(bytes32,address,address)");
       const paddedRole = ethers.zeroPadValue(CLUB_ROLE, 32);
+      const toBlock = await publicProvider.getBlockNumber();
       const [grantedLogs, revokedLogs] = await Promise.all([
-        publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleGrantedTopic, paddedRole], fromBlock: START_BLOCK }),
-        publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleRevokedTopic, paddedRole], fromBlock: START_BLOCK }),
+        publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleGrantedTopic, paddedRole], fromBlock: START_BLOCK, toBlock }),
+        publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleRevokedTopic, paddedRole], fromBlock: START_BLOCK, toBlock }),
       ]);
       const decode = (log: any) => ethers.AbiCoder.defaultAbiCoder().decode(["address"], log.topics[2])[0].toLowerCase();
       const grantedFiltered = grantedLogs;
