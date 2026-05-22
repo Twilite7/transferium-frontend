@@ -84,15 +84,15 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, publicProvider);
       const CLUB_ROLE = await registry.CLUB_ROLE();
       const START_BLOCK = 43526900;
-      const filter_granted = registry.filters.RoleGranted(CLUB_ROLE, null, null);
-      const filter_revoked = registry.filters.RoleRevoked(CLUB_ROLE, null, null);
       const [granted, revoked] = await Promise.all([
-        registry.queryFilter(filter_granted, START_BLOCK),
-        registry.queryFilter(filter_revoked, START_BLOCK),
+        registry.queryFilter(registry.getEvent("RoleGranted"), START_BLOCK),
+        registry.queryFilter(registry.getEvent("RoleRevoked"),  START_BLOCK),
       ]);
-      console.log("loadClubs: granted", granted.length, "revoked", revoked.length);
-      const active = new Set<string>(granted.map((e: any) => e.args.account.toLowerCase()));
-      revoked.forEach((e: any) => active.delete(e.args.account.toLowerCase()));
+      const grantedFiltered = (granted as any[]).filter((e: any) => e.args.role === CLUB_ROLE);
+      const revokedFiltered = (revoked as any[]).filter((e: any) => e.args.role === CLUB_ROLE);
+      console.log("loadClubs: granted", grantedFiltered.length, "revoked", revokedFiltered.length);
+      const active = new Set<string>(grantedFiltered.map((e: any) => e.args.account.toLowerCase()));
+      revokedFiltered.forEach((e: any) => active.delete(e.args.account.toLowerCase()));
       const list: Club[] = await Promise.all(
         Array.from(active).map(async (addr) => {
           const [name, bal] = await Promise.all([
