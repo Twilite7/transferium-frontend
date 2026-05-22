@@ -98,7 +98,8 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
         try {
           const raw      = await registry.getPlayer(i);
           const owner    = await registry.ownerOf(i);
-          const legalRaw = await registry.getLegalDocuments(i);
+          let legalRaw: any = { documentsVerified: false, registrationContractHash: ethers.ZeroHash };
+          try { legalRaw = await registry.getLegalDocuments(i); } catch {}
           loaded.push({
             id:                  raw.id,
             name:                raw.name,
