@@ -101,7 +101,7 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
         grantedLogs.push(...g);
         revokedLogs.push(...r);
       }
-      const decode = (log: any) => ethers.AbiCoder.defaultAbiCoder().decode(["address"], log.topics[2])[0].toLowerCase();
+      const decode = (log: any) => ("0x" + log.topics[2].slice(-40)).toLowerCase();
       const grantedFiltered = grantedLogs;
       const revokedFiltered = revokedLogs;
       console.log("loadClubs: granted", grantedLogs.length, "revoked", revokedLogs.length);
