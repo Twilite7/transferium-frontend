@@ -160,7 +160,7 @@ if (!isValidBytes32(tmsHash))  { setStatus("Invalid FIFA TMS hash."); return; }
       const registry = getRegistry();
       await waitForTx(await registry.submitLegalDocuments(playerId, regHash, tmsHash, workPermit), wallet.provider!);
       setStatus("Legal documents submitted.");
-      setRegHash(""); setIdHash(""); setTmsHash(""); setPermitHash("");
+      setRegHash(""); setTmsHash(""); setPermitHash("");
       setExpanded(null);
       await onRefresh();
     } catch (err: any) {
