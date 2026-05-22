@@ -84,15 +84,20 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, publicProvider);
       const CLUB_ROLE = await registry.CLUB_ROLE();
       const START_BLOCK = 43526900;
-      const [granted, revoked] = await Promise.all([
-        registry.queryFilter(registry.getEvent("RoleGranted"), START_BLOCK),
-        registry.queryFilter(registry.getEvent("RoleRevoked"),  START_BLOCK),
+      // I use topic hash directly to avoid ethers v6 filter compatibility issues
+      const roleGrantedTopic = ethers.id("RoleGranted(bytes32,address,address)");
+      const roleRevokedTopic = ethers.id("RoleRevoked(bytes32,address,address)");
+      const paddedRole = ethers.zeroPadValue(CLUB_ROLE, 32);
+      const [grantedLogs, revokedLogs] = await Promise.all([
+        publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleGrantedTopic, paddedRole], fromBlock: START_BLOCK }),
+        publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleRevokedTopic, paddedRole], fromBlock: START_BLOCK }),
       ]);
-      const grantedFiltered = (granted as any[]).filter((e: any) => e.args.role === CLUB_ROLE);
-      const revokedFiltered = (revoked as any[]).filter((e: any) => e.args.role === CLUB_ROLE);
-      console.log("loadClubs: granted", grantedFiltered.length, "revoked", revokedFiltered.length);
-      const active = new Set<string>(grantedFiltered.map((e: any) => e.args.account.toLowerCase()));
-      revokedFiltered.forEach((e: any) => active.delete(e.args.account.toLowerCase()));
+      const decode = (log: any) => ethers.AbiCoder.defaultAbiCoder().decode(["address"], log.topics[2])[0].toLowerCase();
+      const grantedFiltered = grantedLogs;
+      const revokedFiltered = revokedLogs;
+      console.log("loadClubs: granted", grantedLogs.length, "revoked", revokedLogs.length);
+      const active = new Set<string>(grantedFiltered.map((log: any) => decode(log)));
+      revokedFiltered.forEach((log: any) => active.delete(decode(log)));
       const list: Club[] = await Promise.all(
         Array.from(active).map(async (addr) => {
           const [name, bal] = await Promise.all([
