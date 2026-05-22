@@ -6,16 +6,16 @@ import ReleaseEscrowABI from './ReleaseEscrow.json'
 import InstallmentEscrowABI from './InstallmentEscrow.json'
 
 export const CONTRACTS = {
-  PlayerRegistry:     '0x205C2d831B4eBd4f8ecbf3cf7628B9F9bE60B232',
-  TransferWindow:     '0x5e5Fe5DA0e91a11995c3D7BC4b5457075D0D3db1',
-  TransferEscrow:     '0x8C68349715CC34FDe28903dD941CB5b2A9CD9037',
-  DealEscrow:         '0x7540f69B5DE9b5c743EE015d152849eFAb42b9d2',
-  LoanEscrow:         '0x190E4D830a1562DD0FcBa0b168432960147C2699',
-  ReleaseEscrow:      '0x2Bf5d25a0D10F0e215de1c9f590d01fFF1F932bC',
-  SwapEscrow:         '0x7BC8F477092fF16a1c2C9204075Efc5fFE038C38',
-  FreeTransferEscrow: '0xaC30174902380de5a9EF539B771DC94776dEEbB8',
-  InstallmentEscrow:  '0xE6499A004b741626170Cfa9d882a8e6822eEC927',
-  AddressRegistry:    '0xEf40F3425f40BE06419fC1bfB0b1590A723Ec57D',
+  PlayerRegistry:     '0xbE8d243C435796ee8f716CE34B5f76866E909f64',
+  TransferWindow:     '0x6ddAf820C527135B8848EBb13A7445A1c215Eb72',
+  TransferEscrow:     '0x07B2641dc6390e2cE93b3fB913c706c7F4b3F05A',
+  DealEscrow:         '0x7c198AC82F746464fEA6aFa362e996Be916344Dd',
+  LoanEscrow:         '0x242237EFA475459C950328D311A8C72C891A18B2',
+  ReleaseEscrow:      '0x7c0172C10e8D6Fa8ea22E7607527Dca981a0d61d',
+  SwapEscrow:         '0xE905bf3D33242fd9f1423B7D239689Bfb30C718f',
+  FreeTransferEscrow: '0x3E26181BB5e9E10076C8755e61B69de9afAD01cA',
+  InstallmentEscrow:  '0x9204A5dc48D8f377b507926b492037c048d46A75',
+  AddressRegistry:    '0x18fA208be489704f42e1602691f08207eAa34631',
   eurcAddress:        '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',
   usdcAddress:        '0x3600000000000000000000000000000000000000',
 }

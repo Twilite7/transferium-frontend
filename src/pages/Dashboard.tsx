@@ -4,6 +4,12 @@ import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS, EURC_ADDRESS } from "../config/contracts";
 import { PLAYER_REGISTRY_ABI, DEAL_ESCROW_ABI, TRANSFER_WINDOW_ABI, ERC20_ABI } from "../config/abis";
 
+interface Club {
+  address: string;
+  name:    string;
+  players: number;
+}
+
 interface Stats {
   totalPlayers: string;
   totalDeals:   string;
@@ -17,10 +23,12 @@ interface Stats {
 export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [stats, setStats]   = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [clubs,   setClubs]   = useState<Club[]>([]);
 
   useEffect(() => {
     if (!wallet.provider) return;
     loadStats();
+    loadClubs();
   }, [wallet.provider, wallet.address]);
 
   async function loadStats() {
@@ -66,6 +74,34 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
     }
   }
 
+  async function loadClubs() {
+    if (!wallet.provider) return;
+    try {
+      const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
+      const CLUB_ROLE = await registry.CLUB_ROLE();
+      const filter_granted = registry.filters.RoleGranted(CLUB_ROLE, null, null);
+      const filter_revoked = registry.filters.RoleRevoked(CLUB_ROLE, null, null);
+      const [granted, revoked] = await Promise.all([
+        registry.queryFilter(filter_granted),
+        registry.filters.RoleRevoked ? registry.queryFilter(filter_revoked) : Promise.resolve([]),
+      ]);
+      const active = new Set<string>(granted.map((e: any) => e.args.account.toLowerCase()));
+      revoked.forEach((e: any) => active.delete(e.args.account.toLowerCase()));
+      const list: Club[] = await Promise.all(
+        Array.from(active).map(async (addr) => {
+          const [name, bal] = await Promise.all([
+            registry.getClubName(addr).catch(() => ""),
+            registry.balanceOf(addr).catch(() => 0n),
+          ]);
+          return { address: addr, name: name || "Unnamed Club", players: Number(bal) };
+        })
+      );
+      setClubs(list.sort((a, b) => b.players - a.players));
+    } catch (err) {
+      console.error("loadClubs:", err);
+    }
+  }
+
   return (
     <div>
       <div style={{ marginBottom: "2.5rem" }}>
@@ -74,6 +110,40 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
           Transferium Protocol — On-chain clearance for professional football transfers
         </p>
       </div>
+
+      {clubs.length > 0 && (
+        <div style={{ marginTop: "3rem" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", color: "var(--gold)", letterSpacing: "0.15em", marginBottom: "1.25rem" }}>
+            REGISTERED CLUBS
+          </h2>
+          <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden", background: "var(--bg-card)" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  {["CLUB", "WALLET", "PLAYERS"].map(h => (
+                    <th key={h} style={{ padding: "0.75rem 1.25rem", textAlign: "left", fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", letterSpacing: "0.1em" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {clubs.map((club, i) => (
+                  <tr key={club.address} style={{ borderBottom: i < clubs.length - 1 ? "1px solid var(--border)" : "none" }}>
+                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-display)", fontSize: "0.9rem", color: "var(--text-primary)" }}>
+                      {club.name}
+                    </td>
+                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                      {club.address.slice(0, 6)}…{club.address.slice(-4)}
+                    </td>
+                    <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: "var(--text-primary)" }}>
+                      {club.players}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {!wallet.isConnected ? (
         <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "4rem", textAlign: "center", background: "var(--bg-card)" }}>

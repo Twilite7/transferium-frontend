@@ -148,8 +148,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
 
   async function submitLegalDocuments() {
     if (!isValidBytes32(regHash))  { setStatus("Invalid registration contract hash."); return; }
-    if (!isValidBytes32(idHash))   { setStatus("Invalid identity document hash."); return; }
-    if (!isValidBytes32(tmsHash))  { setStatus("Invalid FIFA TMS hash."); return; }
+if (!isValidBytes32(tmsHash))  { setStatus("Invalid FIFA TMS hash."); return; }
 
     const workPermit = permitHash === "" ? ZERO_BYTES32 : permitHash;
     if (permitHash !== "" && !isValidBytes32(permitHash)) {
@@ -160,7 +159,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
     setStatus("Submitting legal documents...");
     try {
       const registry = getRegistry();
-      await waitForTx(await registry.submitLegalDocuments(playerId, regHash, idHash, tmsHash, workPermit), wallet.provider!);
+      await waitForTx(await registry.submitLegalDocuments(playerId, regHash, tmsHash, workPermit), wallet.provider!);
       setStatus("Legal documents submitted.");
       setRegHash(""); setIdHash(""); setTmsHash(""); setPermitHash("");
       setExpanded(null);
