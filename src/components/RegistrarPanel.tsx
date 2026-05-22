@@ -164,6 +164,7 @@ if (!isValidBytes32(tmsHash))  { setStatus("Invalid FIFA TMS hash."); return; }
       setExpanded(null);
       await onRefresh();
     } catch (err: any) {
+      console.error("submitLegalDocuments error:", err);
       setStatus(parseError(err));
     }
   }
