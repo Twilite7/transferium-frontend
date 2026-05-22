@@ -26,9 +26,12 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
   const [clubs,   setClubs]   = useState<Club[]>([]);
 
   useEffect(() => {
+    loadClubs();
+  }, []);
+
+  useEffect(() => {
     if (!wallet.provider) return;
     loadStats();
-    loadClubs();
   }, [wallet.provider, wallet.address]);
 
   async function loadStats() {
@@ -75,9 +78,9 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
   }
 
   async function loadClubs() {
-    if (!wallet.provider) return;
     try {
-      const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
+      const publicProvider = new ethers.JsonRpcProvider("https://rpc.testnet.arc.network");
+      const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, publicProvider);
       const CLUB_ROLE = await registry.CLUB_ROLE();
       const filter_granted = registry.filters.RoleGranted(CLUB_ROLE, null, null);
       const filter_revoked = registry.filters.RoleRevoked(CLUB_ROLE, null, null);
