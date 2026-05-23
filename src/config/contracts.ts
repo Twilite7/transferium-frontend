@@ -2,18 +2,19 @@ import PlayerRegistryABI from './PlayerRegistry.json'
 import TransferEscrowABI from './TransferEscrow.json'
 import DealEscrowABI from './DealEscrow.json'
 import LoanEscrowABI from './LoanEscrow.json'
+import TransferWindowABI from './TransferWindow.json'
 
 export const CONTRACTS = {
-  PlayerRegistry:     '0x5212d6719883a45B4Cc1Fb32Ab04EC1c5ABdb200',
-  TransferWindow:     '0xC10d13f05B88310445d5f223777df2B534065c22',
-  TransferEscrow:     '0x8107b9796cFc4Cc23E2580aF1B9A2e7b9d56Ec5F',
-  DealEscrow:         '0xB6fFEad3449AB3F4c0cf82D2a634B649Ddf5725f',
-  LoanEscrow:         '0xA75845eD1477E096B0a6B1934F04Ff7Db967BcE5',
-  ReleaseEscrow:      '0x619225A03e367E3CFdae6aaf591855b07bFbcc8D',
-  SwapEscrow:         '0xf7d3376207Eb23AbEfB20D3B9495299911E1EBBc',
-  FreeTransferEscrow: '0x859103422a71c18c9291AE6A3a37D2Dae80f418b',
-  InstallmentEscrow:  '0x4089cd34051ad62E81bd0003Cf368d3315b25A21',
-  AddressRegistry:    '0x6567dd5C319C5eD6A61E89097c7604f2C001a899',
+  PlayerRegistry:     '0xFA8dCb6f0DB181DD9400888a1e0874Ebba94D7bA',
+  TransferWindow:     '0x176971dcb37e6A482A010FDa73cCd2a4115a0466',
+  TransferEscrow:     '0x7eAD7C571A243FDDe26F18b46deD8cF2c665fE1d',
+  DealEscrow:         '0x448a0D5B3D3F121141ebd0d388788ef6BBD50182',
+  LoanEscrow:         '0x881E98E84FfB974EfFF4E8ae3Fa4e285b57E681A',
+  ReleaseEscrow:      '0x9396C22C9086247273Fc6111351E2BaB31F631eD',
+  SwapEscrow:         '0x3f68D5c4265AE7593Cd454864e56af0b2725D668',
+  FreeTransferEscrow: '0xB9479Acb0486aAe1e0f03713bfd5F301A8096A92',
+  InstallmentEscrow:  '0xE8EBDc6b7a400C24eD215C0831eA3e4d4a1FBfF9',
+  AddressRegistry:    '0x36004ef9D7C2399a521D8445124A80B27Ccc8B64',
   eurcAddress:        '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',
   usdcAddress:        '0x3600000000000000000000000000000000000000',
 }
@@ -59,7 +60,5 @@ export const transferEscrowContract = {
 
 export const transferWindowContract = {
   address: CONTRACTS.TransferWindow as `0x${string}`,
-  abi: [] as const,
+  abi: TransferWindowABI.abi,
 }
-
-
