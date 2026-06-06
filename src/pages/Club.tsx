@@ -71,9 +71,25 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [walletInput, setWalletInput]     = useState("");
   const [newWalletInput, setNewWalletInput] = useState("");
   const [terminationReason, setTerminationReason] = useState("");
-  const [form, setForm] = useState({
-    name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: ""
+  // I persist the registration form to sessionStorage so a page refresh or
+  // accidental navigation does not wipe partially filled details.
+  // sessionStorage is intentional — it clears when the tab closes, which is
+  // appropriate for financial/registration data.
+  const [form, setForm] = useState<{
+    name: string; position: string; nationality: string;
+    contractExpiry: string; weeklySalary: string; fifaId: string;
+  }>(() => {
+    try {
+      const saved = sessionStorage.getItem("transferium_reg_form");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: "" };
   });
+
+  // I write form changes to sessionStorage so the data survives navigation
+  useEffect(() => {
+    try { sessionStorage.setItem("transferium_reg_form", JSON.stringify(form)); } catch {}
+  }, [form]);
 
   useEffect(() => {
     if (!wallet.provider) return;
@@ -168,7 +184,9 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
         wallet.provider!
       );
       setTxStatus("Player registered.");
-      setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: "" });
+      const emptyForm = { name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: "" };
+      setForm(emptyForm);
+      try { sessionStorage.removeItem("transferium_reg_form"); } catch {}
       await loadPlayers();
     } catch (err: any) {
       setTxStatus(parseError(err));
