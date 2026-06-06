@@ -1,8 +1,13 @@
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
-import { CONTRACTS } from "../config/contracts";
-import { PLAYER_REGISTRY_ABI, TRANSFER_ESCROW_ABI, LOAN_ESCROW_ABI } from "../config/abis";
+import { CONTRACTS, EURC_ADDRESS } from "../config/contracts";
+import {
+  PLAYER_REGISTRY_ABI,
+  TRANSFER_ESCROW_ABI,
+  LOAN_ESCROW_ABI,
+  TRANSFER_WINDOW_ABI,
+} from "../config/abis";
 import { parseError } from "../utils/parseError";
 import { waitForTx } from "../utils/waitForTx";
 
@@ -18,210 +23,393 @@ const input = {
   width:        "100%",
 };
 
-const btn = (color: string, bg = "transparent") => ({
-  background:    bg,
-  border:        `1px solid ${color}`,
-  color:         color,
+const btn = (color: string, bg = "transparent", disabled = false) => ({
+  background:    disabled ? "transparent" : bg,
+  border:        `1px solid ${disabled ? "var(--border)" : color}`,
+  color:         disabled ? "var(--text-dim)" : color,
   fontFamily:    "var(--font-mono)",
   fontSize:      "0.65rem",
   letterSpacing: "0.08em",
   padding:       "6px 16px",
   borderRadius:  "var(--radius-sm)",
-  cursor:        "pointer",
+  cursor:        disabled ? "not-allowed" : "pointer",
   whiteSpace:    "nowrap" as const,
+  opacity:       disabled ? 0.5 : 1,
 });
 
-interface ClubEntry {
-  address: string;
-  hasRole: boolean;
-  name?: string;
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.5rem 2rem", marginBottom: "1.5rem" }}>
+      <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "1.25rem" }}>{title}</p>
+      {children}
+    </div>
+  );
 }
 
 export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
-  const [isRegistrar, setIsRegistrar] = useState(false);
-  const [clubAddress, setClubAddress] = useState("");
-  const [clubName, setClubName]       = useState("");
-  const [status, setStatus]           = useState<string | null>(null);
-  const [clubs, setClubs]             = useState<ClubEntry[]>([]);
-  const [checking, setChecking]       = useState(false);
+  const [isAdmin, setIsAdmin]   = useState(false);
+  const [status, setStatus]     = useState<string | null>(null);
+
+  const [regClubAddr, setRegClubAddr]           = useState("");
+  const [regClubName, setRegClubName]           = useState("");
+  const [regRegistrarAddr, setRegRegistrarAddr] = useState("");
+  const [deregClubAddr, setDeregClubAddr]       = useState("");
+  const [regRole, setRegRole]                   = useState("");
+  const [revokeRole, setRevokeRole]             = useState("");
+  const [newRegFee, setNewRegFee]               = useState("");
+  const [newListFee, setNewListFee]             = useState("");
+  const [newBaseFee, setNewBaseFee]             = useState("");
+  const [newProtoBps, setNewProtoBps]           = useState("");
+  const [winLabel, setWinLabel]                 = useState("");
+  const [winOpens, setWinOpens]                 = useState("");
+  const [winCloses, setWinCloses]               = useState("");
+  const [winType, setWinType]                   = useState(0);
+  const [withdrawToken, setWithdrawToken]       = useState(EURC_ADDRESS);
+  const [withdrawAmount, setWithdrawAmount]     = useState("");
+  const [feeScheduleInfo, setFeeScheduleInfo]   = useState<{ pending: bigint; effectiveAt: bigint } | null>(null);
 
   useEffect(() => {
     if (!wallet.provider || !wallet.address) return;
-    checkRegistrar();
+    checkAdmin();
+    loadFeeSchedule();
   }, [wallet.provider, wallet.address]);
 
-  async function checkRegistrar() {
+  async function checkAdmin() {
     if (!wallet.provider || !wallet.address) return;
     try {
-      const registry       = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
-      const REGISTRAR_ROLE = await registry.REGISTRAR_ROLE();
-      setIsRegistrar(await registry.hasRole(REGISTRAR_ROLE, wallet.address));
+      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
+      const ADMIN_ROLE = await registry.ADMIN_ROLE();
+      setIsAdmin(await registry.hasRole(ADMIN_ROLE, wallet.address));
     } catch {}
   }
 
-  async function grantClubRole() {
-    if (!wallet.signer || !clubAddress) return;
-    try { ethers.getAddress(clubAddress); } catch { setStatus("Invalid wallet address."); return; }
-    if (!clubName.trim()) { setStatus("Club name is required."); return; }
-    setStatus("Granting club access on all contracts...");
+  async function loadFeeSchedule() {
+    if (!wallet.provider) return;
     try {
-      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      const escrow     = new ethers.Contract(CONTRACTS.TransferEscrow,  TRANSFER_ESCROW_ABI, wallet.signer);
-      const loanEscrow = new ethers.Contract(CONTRACTS.LoanEscrow,      LOAN_ESCROW_ABI,     wallet.signer);
-      const CLUB_ROLE  = await registry.CLUB_ROLE();
-
-      // I grant on all four contracts sequentially — a club needs access everywhere
-      setStatus("1/4 PlayerRegistry...");
-      await waitForTx(await registry.grantRole(CLUB_ROLE, clubAddress), wallet.provider!);
-      setStatus("2/4 TransferEscrow...");
-      await waitForTx(await escrow.grantRole(CLUB_ROLE, clubAddress), wallet.provider!);
-      setStatus("3/4 LoanEscrow...");
-      await waitForTx(await loanEscrow.grantRole(CLUB_ROLE, clubAddress), wallet.provider!);
-
-      // DealEscrow uses LEAGUE_ROLE not CLUB_ROLE for admin, but clubs don't need a role there
-      // — they interact through TransferEscrow which holds TRANSFER_ESCROW_ROLE on DealEscrow
-
-      setStatus("4/4 Setting club name...");
-      await waitForTx(await registry.setClubName(clubAddress, clubName.trim()), wallet.provider!);
-      setStatus(`Club "${clubName.trim()}" granted access on all contracts.`);
-      setClubs(prev => [...prev.filter(c => c.address.toLowerCase() !== clubAddress.toLowerCase()), { address: clubAddress, hasRole: true, name: clubName.trim() }]);
-      setClubAddress("");
-      setClubName("");
-    } catch (err: any) {
-      console.error("grantClubRole error:", err);
-      setStatus(parseError(err));
-    }
-  }
-
-  async function revokeClubRole(address: string) {
-    if (!wallet.signer) return;
-    setStatus("Revoking club access...");
-    try {
-      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      const escrow     = new ethers.Contract(CONTRACTS.TransferEscrow,  TRANSFER_ESCROW_ABI, wallet.signer);
-      const loanEscrow = new ethers.Contract(CONTRACTS.LoanEscrow,      LOAN_ESCROW_ABI,     wallet.signer);
-      const CLUB_ROLE  = await registry.CLUB_ROLE();
-      for (const [contract] of [[registry], [escrow], [loanEscrow]] as const) {
-        const hasRole = await contract.hasRole(CLUB_ROLE, address);
-        if (hasRole) {
-          await waitForTx(await contract.revokeRole(CLUB_ROLE, address), wallet.provider!);
-        }
-      }
-      setStatus("Club access revoked on all contracts.");
-      setClubs(prev => prev.map(c => c.address.toLowerCase() === address.toLowerCase() ? { ...c, hasRole: false } : c));
-    } catch (err: any) {
-      console.error("revokeClubRole error:", err);
-      setStatus(parseError(err));
-    }
-  }
-
-  async function lookupAddress() {
-    if (!clubAddress) return;
-    try { ethers.getAddress(clubAddress); } catch { setStatus("Invalid wallet address."); return; }
-    setChecking(true);
-    setStatus(null);
-    try {
-      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider!);
-      const escrow     = new ethers.Contract(CONTRACTS.TransferEscrow,  TRANSFER_ESCROW_ABI, wallet.provider!);
-      const loanEscrow = new ethers.Contract(CONTRACTS.LoanEscrow,      LOAN_ESCROW_ABI,     wallet.provider!);
-      const CLUB_ROLE  = await registry.CLUB_ROLE();
-      const [r, e, l]  = await Promise.all([
-        registry.hasRole(CLUB_ROLE, clubAddress),
-        escrow.hasRole(CLUB_ROLE, clubAddress),
-        loanEscrow.hasRole(CLUB_ROLE, clubAddress),
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
+      const [pending, effectiveAt] = await Promise.all([
+        registry._pendingBaseVerificationFee?.().catch(() => null),
+        registry._pendingBaseVerificationFeeEffectiveAt?.().catch(() => null),
       ]);
-      // I consider a club fully active only if it has the role on all three
-      const hasRole = r && e && l;
-      const registry2 = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider!);
-      const name = await registry2.getClubName(clubAddress).catch(() => "");
-      setClubs(prev => [...prev.filter(c => c.address.toLowerCase() !== clubAddress.toLowerCase()), { address: clubAddress, hasRole, name: name || undefined }]);
-    } catch (err: any) {
-      console.error("lookupAddress error:", err);
-      setStatus(parseError(err));
-    } finally {
-      setChecking(false);
-    }
+      if (pending !== null && pending !== undefined) {
+        setFeeScheduleInfo({ pending, effectiveAt });
+      }
+    } catch {}
+  }
+
+  async function registerClub() {
+    if (!wallet.signer) return;
+    try { ethers.getAddress(regClubAddr); } catch { setStatus("Invalid club wallet address."); return; }
+    try { ethers.getAddress(regRegistrarAddr); } catch { setStatus("Invalid registrar address."); return; }
+    if (!regClubName.trim()) { setStatus("Club name is required."); return; }
+    setStatus("Registering club...");
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.registerClub(regClubAddr, regClubName.trim(), regRegistrarAddr), wallet.provider!);
+      const escrow    = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.signer);
+      const loan      = new ethers.Contract(CONTRACTS.LoanEscrow, LOAN_ESCROW_ABI, wallet.signer);
+      const CLUB_ROLE = await escrow.CLUB_ROLE();
+      setStatus("Granting CLUB_ROLE on TransferEscrow...");
+      await waitForTx(await escrow.grantRole(CLUB_ROLE, regClubAddr), wallet.provider!);
+      setStatus("Granting CLUB_ROLE on LoanEscrow...");
+      await waitForTx(await loan.grantRole(CLUB_ROLE, regClubAddr), wallet.provider!);
+      setStatus(`Club "${regClubName.trim()}" registered with registrar ${regRegistrarAddr.slice(0,8)}...`);
+      setRegClubAddr(""); setRegClubName(""); setRegRegistrarAddr("");
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function deregisterClub() {
+    if (!wallet.signer) return;
+    try { ethers.getAddress(deregClubAddr); } catch { setStatus("Invalid club address."); return; }
+    setStatus("Deregistering club...");
+    try {
+      const registry  = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.deregisterClub(deregClubAddr), wallet.provider!);
+      const escrow    = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.signer);
+      const loan      = new ethers.Contract(CONTRACTS.LoanEscrow, LOAN_ESCROW_ABI, wallet.signer);
+      const CLUB_ROLE = await escrow.CLUB_ROLE();
+      for (const c of [escrow, loan]) {
+        const has = await c.hasRole(CLUB_ROLE, deregClubAddr);
+        if (has) await waitForTx(await c.revokeRole(CLUB_ROLE, deregClubAddr), wallet.provider!);
+      }
+      setStatus(`Club ${deregClubAddr.slice(0,8)}... deregistered.`);
+      setDeregClubAddr("");
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function grantRegistrarRole() {
+    if (!wallet.signer) return;
+    try { ethers.getAddress(regRole); } catch { setStatus("Invalid address."); return; }
+    setStatus("Granting registrar role...");
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.grantRegistrarRole(regRole), wallet.provider!);
+      setStatus(`REGISTRAR_ROLE granted to ${regRole.slice(0,8)}...`);
+      setRegRole("");
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function revokeRegistrarRole() {
+    if (!wallet.signer) return;
+    try { ethers.getAddress(revokeRole); } catch { setStatus("Invalid address."); return; }
+    setStatus("Revoking registrar role...");
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.revokeRegistrarRole(revokeRole), wallet.provider!);
+      setStatus(`REGISTRAR_ROLE revoked from ${revokeRole.slice(0,8)}...`);
+      setRevokeRole("");
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function setFee(fn: string, value: string, label: string) {
+    if (!wallet.signer || !value) return;
+    setStatus(`Setting ${label}...`);
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      const units = ethers.parseUnits(value, 6);
+      await waitForTx(await registry[fn](units), wallet.provider!);
+      setStatus(`${label} set to ${value} EURC.`);
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function scheduleBaseFee() {
+    if (!wallet.signer || !newBaseFee) return;
+    setStatus("Scheduling base verification fee update...");
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      const units = ethers.parseUnits(newBaseFee, 6);
+      await waitForTx(await registry.scheduleBaseVerificationFee(units), wallet.provider!);
+      setStatus(`Base verification fee scheduled: ${newBaseFee} EURC — takes effect in 10 days.`);
+      setNewBaseFee("");
+      await loadFeeSchedule();
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function activateBaseFee() {
+    if (!wallet.signer) return;
+    setStatus("Activating scheduled base verification fee...");
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.activateBaseVerificationFee(), wallet.provider!);
+      setStatus("Base verification fee activated.");
+      setFeeScheduleInfo(null);
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function setProtocolFeeBps() {
+    if (!wallet.signer || !newProtoBps) return;
+    const bps = parseInt(newProtoBps);
+    if (isNaN(bps) || bps < 0 || bps > 2000) { setStatus("Protocol fee must be 0–2000 bps (0–20%)."); return; }
+    setStatus("Setting protocol fee...");
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.setProtocolFeeBps(bps), wallet.provider!);
+      setStatus(`Protocol fee set to ${bps} bps (${(bps / 100).toFixed(2)}%).`);
+      setNewProtoBps("");
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function scheduleWindow() {
+    if (!wallet.signer || !winLabel || !winOpens || !winCloses) return;
+    setStatus("Scheduling transfer window...");
+    try {
+      const win    = new ethers.Contract(CONTRACTS.TransferWindow, TRANSFER_WINDOW_ABI, wallet.signer);
+      const opens  = Math.floor(new Date(winOpens).getTime() / 1000);
+      const closes = Math.floor(new Date(winCloses).getTime() / 1000);
+      if (opens <= Math.floor(Date.now() / 1000)) { setStatus("Open time must be in the future."); return; }
+      if (closes <= opens) { setStatus("Close time must be after open time."); return; }
+      await waitForTx(await win.scheduleWindow(winLabel.trim(), opens, closes, winType), wallet.provider!);
+      setStatus(`Window "${winLabel}" scheduled.`);
+      setWinLabel(""); setWinOpens(""); setWinCloses("");
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function advanceActiveWindow() {
+    if (!wallet.signer) return;
+    setStatus("Advancing active window pointer...");
+    try {
+      const win = new ethers.Contract(CONTRACTS.TransferWindow, TRANSFER_WINDOW_ABI, wallet.signer);
+      await waitForTx(await win.advanceActiveWindow(), wallet.provider!);
+      setStatus("Active window pointer advanced.");
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function withdrawFees(contractName: string, contractAddr: string, abi: any) {
+    if (!wallet.signer || !withdrawAmount) return;
+    setStatus(`Withdrawing from ${contractName}...`);
+    try {
+      const c = new ethers.Contract(contractAddr, abi, wallet.signer);
+      const units = ethers.parseUnits(withdrawAmount, 6);
+      await waitForTx(await c.withdrawFees(withdrawToken, units), wallet.provider!);
+      setStatus(`Withdrawn ${withdrawAmount} EURC from ${contractName}.`);
+      setWithdrawAmount("");
+    } catch (err: any) { setStatus(parseError(err)); }
   }
 
   if (!wallet.isConnected) return (
     <div style={{ textAlign: "center", padding: "4rem" }}>
-      <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-dim)" }}>Connect your wallet to access league management.</p>
+      <p style={{ fontFamily: "var(--font-mono)", color: "var(--text-dim)" }}>Connect your wallet to access admin management.</p>
     </div>
   );
 
-  if (!isRegistrar) return (
+  if (!isAdmin) return (
     <div style={{ textAlign: "center", padding: "4rem" }}>
-      <p style={{ fontFamily: "var(--font-mono)", color: "var(--red)" }}>Access restricted to league registrars only.</p>
+      <p style={{ fontFamily: "var(--font-mono)", color: "var(--red)" }}>Access restricted to protocol admin only.</p>
     </div>
   );
 
   return (
     <div>
       <div style={{ marginBottom: "2.5rem" }}>
-        <h1 style={{ fontSize: "3.5rem", color: "var(--gold)", marginBottom: "0.5rem" }}>LEAGUE</h1>
+        <h1 style={{ fontSize: "3.5rem", color: "var(--gold)", marginBottom: "0.5rem" }}>ADMIN</h1>
         <p style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>
-          Manage club registrations and roles
+          Protocol administration — club registration, registrar management, fees, transfer windows
         </p>
       </div>
 
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.5rem 2rem", marginBottom: "2rem" }}>
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "1rem" }}>
-          CLUB WALLET ADDRESS
-        </p>
-        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-          <input type="text" placeholder="0x..." value={clubAddress}
-            onChange={e => setClubAddress(e.target.value)} style={input} />
-          <div style={{ marginTop: "0.75rem" }}>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>CLUB NAME</p>
-            <input type="text" placeholder="e.g. Manchester United FC" value={clubName}
-              onChange={e => setClubName(e.target.value)} style={input} />
+      <Section title="REGISTER CLUB">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: "0.75rem", alignItems: "end" }}>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>CLUB WALLET ADDRESS</p>
+            <input type="text" placeholder="0x..." value={regClubAddr} onChange={e => setRegClubAddr(e.target.value.trim())} style={input} />
           </div>
-          <button onClick={lookupAddress} disabled={checking} style={btn("var(--text-secondary)")}>
-            {checking ? "CHECKING..." : "LOOKUP"}
-          </button>
-          <button onClick={grantClubRole} disabled={!clubAddress} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>
-            GRANT
-          </button>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>CLUB NAME</p>
+            <input type="text" placeholder="e.g. FC Barcelona" value={regClubName} onChange={e => setRegClubName(e.target.value)} style={input} />
+          </div>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>ASSIGNED REGISTRAR ADDRESS</p>
+            <input type="text" placeholder="0x..." value={regRegistrarAddr} onChange={e => setRegRegistrarAddr(e.target.value.trim())} style={input} />
+          </div>
+          <button onClick={registerClub} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>REGISTER</button>
         </div>
-        {status && (
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.75rem" }}>
-            {status}
-          </p>
-        )}
-      </div>
+      </Section>
 
-      {clubs.length > 0 && (
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["WALLET","STATUS","ACTION"].map(h => (
-                  <th key={h} style={{ padding: "1rem 1.25rem", textAlign: "left", fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.1em", color: "var(--text-dim)", fontWeight: 400 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {clubs.map((c, i) => (
-                <tr key={c.address} style={{ borderBottom: i < clubs.length - 1 ? "1px solid var(--border)" : "none" }}>
-                  <td style={{ padding: "1rem 1.25rem" }}>
-                    <p style={{ fontFamily: "var(--font-body)", fontSize: "0.85rem", marginBottom: "0.2rem" }}>{c.name ?? "—"}</p>
-                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)" }}>{c.address.slice(0,10)}...{c.address.slice(-8)}</p>
-                  </td>
-                  <td style={{ padding: "1rem 1.25rem" }}>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.08em", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: `1px solid ${c.hasRole ? "var(--green)" : "var(--border)"}`, color: c.hasRole ? "var(--green)" : "var(--text-dim)" }}>
-                      {c.hasRole ? "ACTIVE CLUB" : "NO ROLE"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "1rem 1.25rem" }}>
-                    {c.hasRole && (
-                      <button onClick={() => revokeClubRole(c.address)} style={btn("var(--red)")}>REVOKE</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <Section title="DEREGISTER CLUB (must have no active players)">
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <input type="text" placeholder="Club wallet address 0x..." value={deregClubAddr} onChange={e => setDeregClubAddr(e.target.value.trim())} style={input} />
+          <button onClick={deregisterClub} disabled={!deregClubAddr} style={btn("var(--red)", "transparent", !deregClubAddr)}>DEREGISTER</button>
         </div>
+      </Section>
+
+      <Section title="REGISTRAR ROLE MANAGEMENT">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr auto", gap: "0.75rem", alignItems: "end" }}>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>GRANT REGISTRAR_ROLE TO</p>
+            <input type="text" placeholder="0x..." value={regRole} onChange={e => setRegRole(e.target.value.trim())} style={input} />
+          </div>
+          <button onClick={grantRegistrarRole} disabled={!regRole} style={btn("var(--green)", "rgba(45,206,137,0.08)", !regRole)}>GRANT</button>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>REVOKE REGISTRAR_ROLE FROM</p>
+            <input type="text" placeholder="0x..." value={revokeRole} onChange={e => setRevokeRole(e.target.value.trim())} style={input} />
+          </div>
+          <button onClick={revokeRegistrarRole} disabled={!revokeRole} style={btn("var(--red)", "transparent", !revokeRole)}>REVOKE</button>
+        </div>
+      </Section>
+
+      <Section title="FEE CONFIGURATION (amounts in EURC)">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginBottom: "1rem" }}>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>REGISTRATION FEE (EURC)</p>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <input type="number" placeholder="e.g. 0.5" value={newRegFee} onChange={e => setNewRegFee(e.target.value)} style={input} />
+              <button onClick={() => setFee("setRegistrationFee", newRegFee, "Registration fee")} disabled={!newRegFee} style={btn("var(--gold)", "rgba(201,168,76,0.08)", !newRegFee)}>SET</button>
+            </div>
+          </div>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>LISTING FEE (EURC)</p>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <input type="number" placeholder="e.g. 0.1" value={newListFee} onChange={e => setNewListFee(e.target.value)} style={input} />
+              <button onClick={() => setFee("setListingFee", newListFee, "Listing fee")} disabled={!newListFee} style={btn("var(--gold)", "rgba(201,168,76,0.08)", !newListFee)}>SET</button>
+            </div>
+          </div>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>PROTOCOL FEE (bps — max 2000 = 20%)</p>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <input type="number" placeholder="e.g. 200" value={newProtoBps} onChange={e => setNewProtoBps(e.target.value)} style={input} />
+              <button onClick={setProtocolFeeBps} disabled={!newProtoBps} style={btn("var(--gold)", "rgba(201,168,76,0.08)", !newProtoBps)}>SET</button>
+            </div>
+          </div>
+        </div>
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>
+            BASE VERIFICATION FEE — 10-DAY SCHEDULE (registrars may not charge more than 120% of this)
+          </p>
+          {feeScheduleInfo && feeScheduleInfo.effectiveAt > 0n && (
+            <div style={{ background: "rgba(201,168,76,0.06)", border: "1px solid var(--gold-dim)", borderRadius: "var(--radius-sm)", padding: "0.6rem 1rem", marginBottom: "0.75rem" }}>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--gold)" }}>
+                Pending: {ethers.formatUnits(feeScheduleInfo.pending, 6)} EURC — effective at {new Date(Number(feeScheduleInfo.effectiveAt) * 1000).toLocaleString()}
+              </p>
+              <button onClick={activateBaseFee} style={{ ...btn("var(--green)"), marginTop: "0.5rem" }}>ACTIVATE NOW (if effective time has passed)</button>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <input type="number" placeholder="e.g. 1.0" value={newBaseFee} onChange={e => setNewBaseFee(e.target.value)} style={input} />
+            <button onClick={scheduleBaseFee} disabled={!newBaseFee} style={btn("var(--gold)", "rgba(201,168,76,0.08)", !newBaseFee)}>SCHEDULE</button>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="TRANSFER WINDOW MANAGEMENT">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 120px auto", gap: "0.75rem", alignItems: "end", marginBottom: "1rem" }}>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>WINDOW LABEL</p>
+            <input type="text" placeholder="e.g. Summer 2026" value={winLabel} onChange={e => setWinLabel(e.target.value)} style={input} />
+          </div>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>OPENS AT</p>
+            <input type="datetime-local" value={winOpens} onChange={e => setWinOpens(e.target.value)} style={input} />
+          </div>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>CLOSES AT</p>
+            <input type="datetime-local" value={winCloses} onChange={e => setWinCloses(e.target.value)} style={input} />
+          </div>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>TYPE</p>
+            <select value={winType} onChange={e => setWinType(parseInt(e.target.value))} style={{ ...input, cursor: "pointer" }}>
+              <option value={0}>STANDARD</option>
+              <option value={1}>EXCEPTIONAL</option>
+              <option value={2}>EMERGENCY</option>
+            </select>
+          </div>
+          <button onClick={scheduleWindow} disabled={!winLabel || !winOpens || !winCloses} style={btn("var(--green)", "rgba(45,206,137,0.08)", !winLabel || !winOpens || !winCloses)}>SCHEDULE</button>
+        </div>
+        <button onClick={advanceActiveWindow} style={btn("var(--text-secondary)")}>ADVANCE ACTIVE WINDOW POINTER</button>
+      </Section>
+
+      <Section title="WITHDRAW PROTOCOL FEES">
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", marginBottom: "0.75rem" }}>
+          Protocol fees accumulate in each contract separately. Withdraw to the treasury address set in each contract.
+        </p>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginBottom: "1rem" }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>TOKEN ADDRESS (EURC)</p>
+            <input type="text" value={withdrawToken} onChange={e => setWithdrawToken(e.target.value.trim())} style={input} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>AMOUNT (EURC)</p>
+            <input type="number" placeholder="e.g. 100" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} style={input} />
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
+          {[
+            { label: "PlayerRegistry", addr: CONTRACTS.PlayerRegistry, abi: PLAYER_REGISTRY_ABI },
+            { label: "TransferEscrow", addr: CONTRACTS.TransferEscrow, abi: TRANSFER_ESCROW_ABI },
+            { label: "LoanEscrow",     addr: CONTRACTS.LoanEscrow,     abi: LOAN_ESCROW_ABI     },
+          ].map(c => (
+            <button key={c.label} onClick={() => withdrawFees(c.label, c.addr, c.abi)}
+              disabled={!withdrawAmount}
+              style={btn("var(--gold)", "rgba(201,168,76,0.06)", !withdrawAmount)}>
+              FROM {c.label.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      {status && (
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "0.5rem" }}>
+          {status}
+        </p>
       )}
     </div>
   );

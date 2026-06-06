@@ -1,22 +1,25 @@
-import PlayerRegistryABI from './PlayerRegistry.json'
-import TransferEscrowABI from './TransferEscrow.json'
-import DealEscrowABI from './DealEscrow.json'
-import LoanEscrowABI from './LoanEscrow.json'
-import TransferWindowABI from './TransferWindow.json'
+import PlayerRegistryABI       from './PlayerRegistry.json'
+import TransferEscrowABI       from './TransferEscrow.json'
+import DealEscrowABI           from './DealEscrow.json'
+import LoanEscrowABI           from './LoanEscrow.json'
+import TransferWindowABI       from './TransferWindow.json'
+import VerificationManagerABI  from './VerificationManager.json'
+import TerminationManagerABI   from './TerminationManager.json'
 
 export const CONTRACTS = {
-  PlayerRegistry:     '0xFA8dCb6f0DB181DD9400888a1e0874Ebba94D7bA',
-  TransferWindow:     '0x176971dcb37e6A482A010FDa73cCd2a4115a0466',
-  TransferEscrow:     '0x7eAD7C571A243FDDe26F18b46deD8cF2c665fE1d',
-  DealEscrow:         '0x448a0D5B3D3F121141ebd0d388788ef6BBD50182',
-  LoanEscrow:         '0x881E98E84FfB974EfFF4E8ae3Fa4e285b57E681A',
-  ReleaseEscrow:      '0x9396C22C9086247273Fc6111351E2BaB31F631eD',
-  SwapEscrow:         '0x3f68D5c4265AE7593Cd454864e56af0b2725D668',
-  FreeTransferEscrow: '0xB9479Acb0486aAe1e0f03713bfd5F301A8096A92',
-  InstallmentEscrow:  '0xE8EBDc6b7a400C24eD215C0831eA3e4d4a1FBfF9',
-  AddressRegistry:    '0x36004ef9D7C2399a521D8445124A80B27Ccc8B64',
-  eurcAddress:        '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',
-  usdcAddress:        '0x3600000000000000000000000000000000000000',
+  PlayerRegistry:      '0x52D4fb88747d1A5d5af7FBd700578F9F593Bfb58',
+  TransferWindow:      '0xBbD8bE3ff066dE106F63B01c80b1adb753133805',
+  TransferEscrow:      '0x15335cc9734F162bF2784543da8612B93a1E297E',
+  DealEscrow:          '0x11b992809977711B3720a4e4Df3c80213761F463',
+  LoanEscrow:          '0x09C9740568553Ae65F1A0117a31f323f00b4daa2',
+  SwapEscrow:          '0xAaCED43F2427a319Daf31B2B84b80D6113F96EF4',
+  FreeTransferEscrow:  '0x82E3eBA9A029dA2BAbA23eda1cF54eBbAb7dC716',
+  InstallmentEscrow:   '0x7b030198c500Ed573C884FFac9573B7502412884',
+  AddressRegistry:     '0x39840bc67220BE5bD54aC487668fba6e341dAD90',
+  VerificationManager: '0x979F9E297FAE9e4F2dDf4f091Fadbc1E1491f918',
+  TerminationManager:  '0xDe22463F3C64b9681Fd5Bf18d62235E8529737a7',
+  eurcAddress:         '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',
+  usdcAddress:         '0x3600000000000000000000000000000000000000',
 }
 
 export const ARC_TESTNET = {
@@ -61,4 +64,14 @@ export const transferEscrowContract = {
 export const transferWindowContract = {
   address: CONTRACTS.TransferWindow as `0x${string}`,
   abi: TransferWindowABI.abi,
+}
+
+export const verificationManagerContract = {
+  address: CONTRACTS.VerificationManager as `0x${string}`,
+  abi: VerificationManagerABI.abi,
+}
+
+export const terminationManagerContract = {
+  address: CONTRACTS.TerminationManager as `0x${string}`,
+  abi: TerminationManagerABI.abi,
 }

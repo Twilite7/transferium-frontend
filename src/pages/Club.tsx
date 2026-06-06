@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { waitForTx } from "../utils/waitForTx";
 import { parseError } from "../utils/parseError";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
-import { CONTRACTS } from "../config/contracts";
-import { PLAYER_REGISTRY_ABI } from "../config/abis";
-import { RegistrarPanel } from "../components/RegistrarPanel";
-import { uploadPortrait } from "../utils/pinata";
+import { CONTRACTS, EURC_ADDRESS } from "../config/contracts";
+import { PLAYER_REGISTRY_ABI, VERIFICATION_MANAGER_ABI, TERMINATION_MANAGER_ABI, ERC20_ABI } from "../config/abis";
 import { ipfsUrl } from "../config/contracts";
+
+const ZERO_BYTES32 = "0x" + "0".repeat(64);
 
 interface Player {
   id:                  bigint;
@@ -21,18 +21,20 @@ interface Player {
   isListed:            boolean;
   medicalClearance:    boolean;
   medicalDocumentHash: string;
+  medicalVerified:     boolean;
   askingPrice:         bigint;
   releaseClause:       bigint;
   registeredAt:        bigint;
   portraitCID:         string;
+  verificationActive:  boolean;
   _owner?:             string;
   _legalDocs?:         { documentsVerified: boolean; registrationContractHash: string; };
 }
 
-const btn = (color: string, bg = "transparent") => ({
-  background:    bg,
-  border:        `1px solid ${color}`,
-  color:         color,
+const btn = (color: string, bg = "transparent", disabled = false) => ({
+  background:    disabled ? "transparent" : bg,
+  border:        `1px solid ${disabled ? "var(--border)" : color}`,
+  color:         disabled ? "var(--text-dim)" : color,
   fontFamily:    "var(--font-mono)",
   fontSize:      "0.65rem",
   letterSpacing: "0.08em",
@@ -59,12 +61,16 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const [txStatus, setTxStatus]         = useState<string | null>(null);
-  const [isRegistrar, setIsRegistrar]   = useState(false);
   const [clubName, setClubName]         = useState<string>("");
   const [listingId, setListingId]       = useState<bigint | null>(null);
   const [listingPrice, setListingPrice] = useState("");
-  const [portraitFile, setPortraitFile] = useState<File | null>(null);
-  const [portraitPreview, setPortraitPreview] = useState<string | null>(null);
+  // I track which inline action panel is open per player: format "TYPE_playerid"
+  const [activeAction, setActiveAction]   = useState<string | null>(null);
+  const [medHashInput, setMedHashInput]   = useState("");
+  const [legalInputs, setLegalInputs]     = useState({ reg: "", tms: "", permit: "" });
+  const [walletInput, setWalletInput]     = useState("");
+  const [newWalletInput, setNewWalletInput] = useState("");
+  const [terminationReason, setTerminationReason] = useState("");
   const [form, setForm] = useState({
     name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: ""
   });
@@ -79,8 +85,6 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     if (!wallet.provider || !wallet.address) return;
     try {
       const registry       = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
-      const REGISTRAR_ROLE = await registry.REGISTRAR_ROLE();
-      setIsRegistrar(await registry.hasRole(REGISTRAR_ROLE, wallet.address));
       const name = await registry.getClubName(wallet.address).catch(() => "");
       if (name) setClubName(name);
     } catch {}
@@ -100,6 +104,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
           const owner    = await registry.ownerOf(i);
           let legalRaw: any = { documentsVerified: false, registrationContractHash: ethers.ZeroHash };
           try { legalRaw = await registry.getLegalDocuments(i); } catch {}
+          const verActv: boolean = await registry.verificationActive(i).catch(() => false);
           loaded.push({
             id:                  raw.id,
             name:                raw.name,
@@ -112,10 +117,12 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             isListed:            raw.isListed,
             medicalClearance:    raw.medicalClearance,
             medicalDocumentHash: raw.medicalDocumentHash,
+            medicalVerified:     raw.medicalVerified,
             askingPrice:         raw.askingPrice,
             releaseClause:       raw.releaseClause,
             registeredAt:        raw.registeredAt,
             portraitCID:         raw.portraitCID ?? "",
+            verificationActive:  verActv,
             _owner:              owner,
             _legalDocs:          {
               documentsVerified:        legalRaw.documentsVerified,
@@ -132,46 +139,34 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     }
   }
 
-  async function handlePortraitUpload(playerId: bigint, file: File) {
-    if (!wallet.signer) return;
-    setTxStatus(`Uploading portrait for #${playerId}...`);
-    try {
-      const cid      = await uploadPortrait(file);
-      setTxStatus(`Pinned to IPFS. Saving on-chain...`);
-      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      await waitForTx(await registry.setPortrait(playerId, cid), wallet.provider!);
-      setTxStatus(`Portrait updated for #${playerId}.`);
-      await loadPlayers();
-    } catch (err: any) {
-      setTxStatus(parseError(err));
-    }
-  }
-
-  async function handlePortraitSelect(file: File) {
-    setPortraitFile(file);
-    setPortraitPreview(URL.createObjectURL(file));
-  }
 
   async function registerPlayer() {
-    if (!wallet.signer) return;
-    setTxStatus("Submitting...");
+    if (!wallet.signer || !wallet.address) return;
+    // I enforce FIFA ID as mandatory — the new contract rejects bytes32(0) with FifaIdRequired()
+    if (!form.fifaId?.trim()) { setTxStatus("FIFA / National ID is required."); return; }
+    setTxStatus("Preparing registration...");
     try {
       const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
       const expiry   = Math.floor(new Date(form.contractExpiry).getTime() / 1000) + 86400;
       const salary   = form.weeklySalary ? ethers.parseUnits(form.weeklySalary, 6) : 0n;
-      const regFee   = await registry.registrationFee();
-      let cid = "";
-      if (portraitFile) {
-        setTxStatus("Uploading portrait to IPFS...");
-        cid = await uploadPortrait(portraitFile);
+      const regFee: bigint = await registry.registrationFee();
+      // I approve EURC before calling — the new contract uses safeTransferFrom not msg.value
+      if (regFee > 0n) {
+        const eurc = new ethers.Contract(EURC_ADDRESS, ERC20_ABI, wallet.signer);
+        const allowance: bigint = await eurc.allowance(wallet.address, CONTRACTS.PlayerRegistry);
+        if (allowance < regFee) {
+          setTxStatus("Approving EURC for registration fee...");
+          await waitForTx(await eurc.approve(CONTRACTS.PlayerRegistry, regFee), wallet.provider!);
+        }
       }
-      const tx       = await registry.registerPlayer(
-        form.name, form.position, form.nationality, expiry, salary, cid,
-        form.fifaId?.trim() ? ethers.keccak256(ethers.toUtf8Bytes(form.fifaId.trim())) : ethers.ZeroHash,
-        { value: regFee }
+      const fifaIdHash = ethers.keccak256(ethers.toUtf8Bytes(form.fifaId.trim()));
+      setTxStatus("Registering player on-chain...");
+      await waitForTx(
+        await registry.registerPlayer(
+          form.name, form.position, form.nationality, expiry, salary, fifaIdHash
+        ),
+        wallet.provider!
       );
-      setTxStatus("Waiting for confirmation...");
-      await waitForTx(tx, wallet.provider!);
       setTxStatus("Player registered.");
       setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: "" });
       await loadPlayers();
@@ -181,13 +176,22 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   }
 
   async function listPlayer(playerId: bigint) {
-    if (!wallet.signer || !listingPrice) return;
-    setTxStatus(`Listing #${playerId}...`);
+    if (!wallet.signer || !wallet.address || !listingPrice) return;
+    setTxStatus(`Preparing listing for #${playerId}...`);
     try {
-      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      const fee        = await registry.listingFee();
+      const registry    = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      const fee: bigint = await registry.listingFee();
+      if (fee > 0n) {
+        const eurc = new ethers.Contract(EURC_ADDRESS, ERC20_ABI, wallet.signer);
+        const allowance: bigint = await eurc.allowance(wallet.address, CONTRACTS.PlayerRegistry);
+        if (allowance < fee) {
+          setTxStatus("Approving EURC for listing fee...");
+          await waitForTx(await eurc.approve(CONTRACTS.PlayerRegistry, fee), wallet.provider!);
+        }
+      }
       const priceUnits = ethers.parseUnits(listingPrice, 6);
-      await waitForTx(await registry.listPlayer(playerId, priceUnits, { value: fee }), wallet.provider!);
+      setTxStatus(`Listing #${playerId}...`);
+      await waitForTx(await registry.listPlayer(playerId, priceUnits), wallet.provider!);
       setTxStatus(`Player #${playerId} listed.`);
       setListingId(null);
       setListingPrice("");
@@ -210,14 +214,187 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     }
   }
 
+  // ─── Club-side document & verification actions ───────────────────────────
+
+  async function submitMedicalHash(playerId: bigint) {
+    if (!wallet.signer) return;
+    const hash = medHashInput.trim();
+    if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) {
+      setTxStatus("Invalid medical hash — must be 0x followed by 64 hex characters.");
+      return;
+    }
+    setTxStatus(`Submitting medical clearance for #${playerId}...`);
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.setMedicalClearance(playerId, hash), wallet.provider!);
+      setTxStatus(`Medical clearance submitted for #${playerId}.`);
+      setMedHashInput("");
+      setActiveAction(null);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
+    }
+  }
+
+  async function submitLegalDocs(playerId: bigint) {
+    if (!wallet.signer) return;
+    const { reg, tms, permit } = legalInputs;
+    if (!/^0x[0-9a-fA-F]{64}$/.test(reg))    { setTxStatus("Invalid registration contract hash."); return; }
+    if (!/^0x[0-9a-fA-F]{64}$/.test(tms))    { setTxStatus("Invalid FIFA TMS hash."); return; }
+    if (permit !== "" && !/^0x[0-9a-fA-F]{64}$/.test(permit)) { setTxStatus("Invalid work permit hash."); return; }
+    const workPermit = permit === "" ? ZERO_BYTES32 : permit;
+    setTxStatus(`Submitting legal documents for #${playerId}...`);
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.submitLegalDocuments(playerId, reg, tms, workPermit), wallet.provider!);
+      setTxStatus(`Legal documents submitted for #${playerId}.`);
+      setLegalInputs({ reg: "", tms: "", permit: "" });
+      setActiveAction(null);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
+    }
+  }
+
+  async function setPlayerWallet(playerId: bigint) {
+    if (!wallet.signer) return;
+    try { ethers.getAddress(walletInput); } catch { setTxStatus("Invalid Ethereum address."); return; }
+    setTxStatus(`Setting player wallet for #${playerId}...`);
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.setPlayerWallet(playerId, walletInput), wallet.provider!);
+      setTxStatus(`Player wallet set for #${playerId}. Only the player can update it going forward.`);
+      setWalletInput("");
+      setActiveAction(null);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
+    }
+  }
+
+  async function requestVerification(playerId: bigint) {
+    if (!wallet.signer || !wallet.address) return;
+    setTxStatus(`Preparing verification request for #${playerId}...`);
+    try {
+      const vmgr     = new ethers.Contract(CONTRACTS.VerificationManager, VERIFICATION_MANAGER_ABI, wallet.signer);
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      const clubRegistrar: string = await registry.getClubRegistrar(wallet.address);
+      const fee: bigint = await registry.getRegistrarFee(clubRegistrar);
+      if (fee > 0n) {
+        const eurc = new ethers.Contract(EURC_ADDRESS, ERC20_ABI, wallet.signer);
+        const allowance: bigint = await eurc.allowance(wallet.address, CONTRACTS.VerificationManager);
+        if (allowance < fee) {
+          setTxStatus("Approving EURC for verification fee...");
+          await waitForTx(await eurc.approve(CONTRACTS.VerificationManager, fee), wallet.provider!);
+        }
+      }
+      setTxStatus(`Requesting verification for #${playerId}...`);
+      await waitForTx(await vmgr.requestVerification(playerId), wallet.provider!);
+      setTxStatus(`Verification requested for #${playerId}. Registrar has 72 hours to act.`);
+      setActiveAction(null);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
+    }
+  }
+
+  async function claimVerificationRefund(playerId: bigint) {
+    if (!wallet.signer) return;
+    setTxStatus(`Claiming verification refund for #${playerId}...`);
+    try {
+      const vmgr = new ethers.Contract(CONTRACTS.VerificationManager, VERIFICATION_MANAGER_ABI, wallet.signer);
+      await waitForTx(await vmgr.claimVerificationRefund(playerId), wallet.provider!);
+      setTxStatus(`Refund claimed for #${playerId}.`);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
+    }
+  }
+
+  async function initiateWalletUpdate(playerId: bigint) {
+    if (!wallet.signer) return;
+    try { ethers.getAddress(newWalletInput); } catch { setTxStatus("Invalid Ethereum address."); return; }
+    setTxStatus(`Initiating wallet update for #${playerId}...`);
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.initiateWalletUpdate(playerId, newWalletInput), wallet.provider!);
+      setTxStatus(`Wallet update initiated for #${playerId}. 48-hour timelock started.`);
+      setNewWalletInput("");
+      setActiveAction(null);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
+    }
+  }
+
+  async function cancelWalletUpdate(playerId: bigint) {
+    if (!wallet.signer) return;
+    setTxStatus(`Cancelling wallet update for #${playerId}...`);
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.cancelWalletUpdate(playerId), wallet.provider!);
+      setTxStatus(`Wallet update cancelled for #${playerId}.`);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
+    }
+  }
+
+  // ─── Termination actions (TerminationManager) ────────────────────────────
+
+  async function proposeMutualTermination(playerId: bigint) {
+    if (!wallet.signer) return;
+    setTxStatus(`Proposing mutual termination for #${playerId}...`);
+    try {
+      const tmgr = new ethers.Contract(CONTRACTS.TerminationManager, TERMINATION_MANAGER_ABI, wallet.signer);
+      await waitForTx(await tmgr.proposeMutualTermination(playerId), wallet.provider!);
+      setTxStatus(`Mutual termination proposed for #${playerId}. Awaiting player wallet confirmation.`);
+      setActiveAction(null);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
+    }
+  }
+
+  async function withdrawMutualTermination(playerId: bigint) {
+    if (!wallet.signer) return;
+    setTxStatus(`Withdrawing mutual termination proposal for #${playerId}...`);
+    try {
+      const tmgr = new ethers.Contract(CONTRACTS.TerminationManager, TERMINATION_MANAGER_ABI, wallet.signer);
+      await waitForTx(await tmgr.withdrawMutualTermination(playerId), wallet.provider!);
+      setTxStatus(`Mutual termination proposal withdrawn for #${playerId}.`);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
+    }
+  }
+
+  async function proposeUnilateralTermination(playerId: bigint) {
+    if (!wallet.signer) return;
+    if (!terminationReason.trim()) { setTxStatus("A reason is required for unilateral termination."); return; }
+    setTxStatus(`Proposing unilateral termination for #${playerId}...`);
+    try {
+      const tmgr = new ethers.Contract(CONTRACTS.TerminationManager, TERMINATION_MANAGER_ABI, wallet.signer);
+      await waitForTx(await tmgr.proposeUnilateralTermination(playerId, terminationReason.trim()), wallet.provider!);
+      setTxStatus(`Unilateral termination proposed for #${playerId}. 7-day dispute window started.`);
+      setTerminationReason("");
+      setActiveAction(null);
+      await loadPlayers();
+    } catch (err: any) {
+      setTxStatus(parseError(err));
+    }
+  }
+
   const isMyPlayer = (p: Player) =>
     wallet.address ? p._owner?.toLowerCase() === wallet.address.toLowerCase() : false;
 
   const statusLabel = (p: Player) => {
-    if (p.isListed)         return { label: "LISTED",    color: "var(--gold)",           border: "var(--gold-dim)"      };
-    if (p.medicalClearance) return { label: "CLEARED",   color: "var(--green)",          border: "var(--green)"         };
-    if (p.isVerified)       return { label: "VERIFIED",  color: "var(--text-secondary)", border: "var(--border-accent)" };
-    return                         { label: "PENDING",   color: "var(--text-dim)",       border: "var(--border)"        };
+    if (p.isListed)            return { label: "LISTED",               color: "var(--gold)",           border: "var(--gold-dim)"      };
+    if (p.verificationActive)  return { label: "VERIFICATION PENDING", color: "var(--amber)",          border: "var(--amber)"         };
+    if (p.isVerified && p.medicalClearance && p.medicalVerified)
+                               return { label: "FULLY CLEARED",        color: "var(--green)",          border: "var(--green)"         };
+    if (p.isVerified)          return { label: "VERIFIED",             color: "var(--text-secondary)", border: "var(--border-accent)" };
+    return                            { label: "PENDING",              color: "var(--text-dim)",       border: "var(--border)"        };
   };
 
   return (
@@ -469,27 +646,7 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
               onChange={e => setForm(prev => ({ ...prev, fifaId: e.target.value.slice(0, 31) }))}
               style={input}
             />
-            {/* Portrait upload */}
-            <div>
-              <label style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.08em", display: "block", marginBottom: "0.35rem" }}>
-                PLAYER PORTRAIT (optional — uploaded to IPFS)
-              </label>
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                {portraitPreview && (
-                  <img src={portraitPreview} alt="preview"
-                    style={{ width: 56, height: 56, borderRadius: "var(--radius-sm)", objectFit: "cover", border: "1px solid var(--border)" }} />
-                )}
-                <label style={{ ...btn("var(--text-dim)"), cursor: "pointer", display: "inline-block" }}>
-                  {portraitFile ? portraitFile.name : "CHOOSE IMAGE"}
-                  <input type="file" accept="image/*" style={{ display: "none" }}
-                    onChange={e => { const f = e.target.files?.[0]; if (f) handlePortraitSelect(f); e.target.value = ""; }} />
-                </label>
-                {portraitFile && (
-                  <button onClick={() => { setPortraitFile(null); setPortraitPreview(null); }}
-                    style={btn("var(--text-dim)")}>CLEAR</button>
-                )}
-              </div>
-            </div>
+
 
             <button onClick={registerPlayer}
               disabled={!form.name || !form.position || !form.nationality || !form.contractExpiry}
@@ -514,96 +671,215 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
           <p style={{ fontFamily: "var(--font-display)", fontSize: "2rem", color: "var(--text-dim)" }}>NO PLAYERS REGISTERED</p>
         </div>
       ) : (
-        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["ID","NAME","POS","NATIONALITY","WEEKLY SALARY","STATUS","ASKING PRICE","ACTIONS"].map(h => (
-                  <th key={h} style={{ padding: "1rem 1.25rem", textAlign: "left", fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.1em", color: "var(--text-dim)", fontWeight: 400 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(isRegistrar ? players : players.filter(isMyPlayer)).map((p, i) => {
-                const status     = statusLabel(p);
-                const isLast     = i === players.length - 1;
-                const showBorder = !isLast || isRegistrar;
-                return (
-                  <React.Fragment key={p.id?.toString() ?? String(i)}>
-                    <tr style={{ borderBottom: showBorder ? "1px solid var(--border)" : "none" }}>
-                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-dim)" }}>#{p.id?.toString() ?? "?"}</td>
-                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-body)", fontSize: "0.85rem" }}>{p.name}</td>
-                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.position}</td>
-                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-secondary)" }}>{p.nationality}</td>
-                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-primary)" }}>
-                        {isRegistrar ? "—" : p.weeklySalary > 0n ? `€${(Number(p.weeklySalary) / 1e6).toLocaleString()}/wk` : "—"}
-                      </td>
-                      <td style={{ padding: "1rem 1.25rem" }}>
-                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.08em", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: `1px solid ${status.border}`, color: status.color }}>
-                          {status.label}
-                        </span>
-                      </td>
-                      <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-primary)" }}>
-                        {isRegistrar ? "—" : p.isListed ? `€${(Number(p.askingPrice) / 1e6).toLocaleString()}` : "—"}
-                      </td>
-                      <td style={{ padding: "1rem 1.25rem" }}>
-                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" as const }}>
-                          {isMyPlayer(p) && p.isVerified && p.medicalClearance && p._legalDocs?.documentsVerified && !p.isListed && listingId !== p.id && (
-                            <button onClick={() => { setListingId(p.id); setListingPrice(""); }} style={btn("var(--gold)")}>LIST</button>
-                          )}
-                          {listingId === p.id && (
-                            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                              <span style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>€</span>
-                              <input type="number" placeholder="e.g. 20" value={listingPrice}
-                                onChange={e => setListingPrice(e.target.value)}
-                                style={{ ...input, width: "120px", padding: "4px 8px", border: "1px solid var(--border-accent)" }}
-                              />
-                              <button onClick={() => listPlayer(p.id)} disabled={!listingPrice}
-                                style={btn("var(--green)", listingPrice ? "rgba(45,206,137,0.1)" : "transparent")}>
-                                CONFIRM
-                              </button>
-                              <button onClick={() => { setListingId(null); setListingPrice(""); }} style={btn("var(--text-dim)")}>
-                                CANCEL
-                              </button>
-                            </div>
-                          )}
-                          {isMyPlayer(p) && p.isListed && (
-                            <button onClick={() => delistPlayer(p.id)} style={btn("var(--red)")}>DELIST</button>
-                          )}
-                          {isMyPlayer(p) && (
-                            <label title="Upload portrait to IPFS" style={{ cursor: "pointer" }}>
-                              {p.portraitCID ? (
-                                <img src={ipfsUrl(p.portraitCID)} alt={p.name}
-                                  style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border-accent)" }} />
-                              ) : (
-                                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", border: "1px dashed var(--border)", padding: "3px 6px", borderRadius: "var(--radius-sm)" }}>PHOTO</span>
-                              )}
-                              <input type="file" accept="image/*" style={{ display: "none" }}
-                                onChange={e => { const f = e.target.files?.[0]; if (f) handlePortraitUpload(p.id, f); e.target.value = ""; }}
-                              />
-                            </label>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    {isRegistrar && (
-                      <tr key={`reg-${p.id?.toString() ?? String(i)}`} style={{ borderBottom: isLast ? "none" : "1px solid var(--border)" }}>
-                        <td colSpan={8} style={{ padding: "0 1.25rem 1rem" }}>
-                          <RegistrarPanel
-                            wallet={wallet}
-                            playerId={p.id}
-                            player={{ isVerified: p.isVerified, medicalClearance: p.medicalClearance, playerWallet: p.playerWallet }}
-                            legalDocs={p._legalDocs ?? { documentsVerified: false, registrationContractHash: "0x" + "0".repeat(64) }}
-                            onRefresh={loadPlayers}
-                          />
-                        </td>
-                      </tr>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {players.filter(isMyPlayer).map((p) => {
+            const status  = statusLabel(p);
+            const pid     = p.id?.toString() ?? "?";
+            const hasLegal = p._legalDocs?.registrationContractHash !== ZERO_BYTES32;
+            const needsMedical  = !p.medicalClearance;
+            const needsLegal    = !hasLegal;
+            const needsWallet   = p.playerWallet === ethers.ZeroAddress;
+            const canRequest    = p.medicalClearance && hasLegal && p.playerWallet !== ethers.ZeroAddress && !p.isVerified && !p.verificationActive;
+            const actionKey = (type: string) => `${type}_${pid}`;
+
+            return (
+              <div key={pid} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+
+                {/* ── Player header row ────────────────────────── */}
+                <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 80px 120px 120px 160px 120px auto", alignItems: "center", padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-dim)" }}>#{pid}</span>
+                  <span style={{ fontFamily: "var(--font-body)", fontSize: "0.9rem" }}>{p.name}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)" }}>{p.position}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)" }}>{p.nationality}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-primary)" }}>
+                    {p.weeklySalary > 0n ? `€${(Number(p.weeklySalary) / 1e6).toLocaleString()}/wk` : "—"}
+                  </span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", letterSpacing: "0.08em", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: `1px solid ${status.border}`, color: status.color, whiteSpace: "nowrap" as const }}>
+                    {status.label}
+                  </span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--text-primary)" }}>
+                    {p.isListed ? `€${(Number(p.askingPrice) / 1e6).toLocaleString()}` : "—"}
+                  </span>
+                  <div>
+                    {p.portraitCID ? (
+                      <img src={ipfsUrl(p.portraitCID)} alt={p.name}
+                        style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border-accent)" }} />
+                    ) : (
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)" }}>—</span>
                     )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+
+                {/* ── Action buttons row ───────────────────────── */}
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const, padding: "0.75rem 1.25rem", background: "rgba(255,255,255,0.01)", borderBottom: activeAction?.startsWith(`_${pid}`) ? "1px solid var(--border)" : "none" }}>
+                  {needsMedical && (
+                    <button onClick={() => setActiveAction(activeAction === actionKey("med") ? null : actionKey("med"))} style={btn("var(--amber)")}>SET MEDICAL</button>
+                  )}
+                  {needsLegal && (
+                    <button onClick={() => setActiveAction(activeAction === actionKey("legal") ? null : actionKey("legal"))} style={btn("var(--amber)")}>SUBMIT LEGAL DOCS</button>
+                  )}
+                  {needsWallet && !needsMedical && !needsLegal && (
+                    <button onClick={() => setActiveAction(activeAction === actionKey("wallet") ? null : actionKey("wallet"))} style={btn("var(--amber)")}>SET PLAYER WALLET</button>
+                  )}
+                  {canRequest && (
+                    <button onClick={() => requestVerification(p.id)} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>REQUEST VERIFICATION</button>
+                  )}
+                  {p.verificationActive && (
+                    <button onClick={() => claimVerificationRefund(p.id)} style={btn("var(--text-dim)")}>CLAIM REFUND (IF EXPIRED)</button>
+                  )}
+                  {p.isVerified && p.medicalClearance && p.medicalVerified && p._legalDocs?.documentsVerified && !p.isListed && listingId !== p.id && (
+                    <button onClick={() => { setListingId(p.id); setListingPrice(""); }} style={btn("var(--gold)")}>LIST</button>
+                  )}
+                  {listingId === p.id && (
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      <span style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>€</span>
+                      <input type="number" placeholder="e.g. 20000000" value={listingPrice}
+                        onChange={e => setListingPrice(e.target.value)}
+                        style={{ ...input, width: "160px", padding: "4px 8px", border: "1px solid var(--border-accent)" }}
+                      />
+                      <button onClick={() => listPlayer(p.id)} disabled={!listingPrice}
+                        style={btn("var(--green)", listingPrice ? "rgba(45,206,137,0.1)" : "transparent")}>CONFIRM</button>
+                      <button onClick={() => { setListingId(null); setListingPrice(""); }} style={btn("var(--text-dim)")}>CANCEL</button>
+                    </div>
+                  )}
+                  {p.isListed && (
+                    <button onClick={() => delistPlayer(p.id)} style={btn("var(--red)")}>DELIST</button>
+                  )}
+                  {p.playerWallet !== ethers.ZeroAddress && (
+                    <button onClick={() => setActiveAction(activeAction === actionKey("newwallet") ? null : actionKey("newwallet"))} style={btn("var(--text-dim)")}>UPDATE WALLET</button>
+                  )}
+                  {/* Termination — only show when player is not listed and wallet is set */}
+                  {p.playerWallet !== ethers.ZeroAddress && !p.isListed && (
+                    <button onClick={() => setActiveAction(activeAction === actionKey("terminate") ? null : actionKey("terminate"))} style={btn("var(--red)")}>TERMINATE CONTRACT</button>
+                  )}
+                </div>
+
+                {/* ── Inline panels ────────────────────────────── */}
+                {activeAction === actionKey("med") && (
+                  <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid var(--border)" }}>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>MEDICAL DOCUMENT HASH (keccak256)</p>
+                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                      <input type="text" placeholder="0x..." value={medHashInput}
+                        onChange={e => setMedHashInput(e.target.value.trim())}
+                        style={{ ...input, borderColor: medHashInput && !/^0x[0-9a-fA-F]{64}$/.test(medHashInput) ? "var(--red)" : "var(--border)" }}
+                      />
+                      <button onClick={() => submitMedicalHash(p.id)} disabled={!/^0x[0-9a-fA-F]{64}$/.test(medHashInput)}
+                        style={btn("var(--amber)", !/^0x[0-9a-fA-F]{64}$/.test(medHashInput) ? "transparent" : "rgba(245,158,11,0.08)", !/^0x[0-9a-fA-F]{64}$/.test(medHashInput))}>
+                        SUBMIT
+                      </button>
+                      <button onClick={() => { setActiveAction(null); setMedHashInput(""); }} style={btn("var(--text-dim)")}>CANCEL</button>
+                    </div>
+                  </div>
+                )}
+
+                {activeAction === actionKey("legal") && (
+                  <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid var(--border)" }}>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>LEGAL DOCUMENT HASHES (all unique keccak256 values)</p>
+                    <div style={{ display: "grid", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                      {[
+                        { key: "reg" as const,    label: "REGISTRATION CONTRACT HASH",              placeholder: "0x..." },
+                        { key: "tms" as const,    label: "FIFA TMS REFERENCE HASH",                 placeholder: "0x..." },
+                        { key: "permit" as const, label: "WORK PERMIT HASH (optional — domestic)",  placeholder: "0x... or leave blank" },
+                      ].map(f => (
+                        <div key={f.key}>
+                          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.3rem" }}>{f.label}</p>
+                          <input type="text" placeholder={f.placeholder} value={legalInputs[f.key]}
+                            onChange={e => setLegalInputs(prev => ({ ...prev, [f.key]: e.target.value.trim() }))}
+                            style={{ ...input, borderColor: legalInputs[f.key] && !/^0x[0-9a-fA-F]{64}$/.test(legalInputs[f.key]) ? "var(--red)" : "var(--border)" }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: "0.75rem" }}>
+                      <button onClick={() => submitLegalDocs(p.id)}
+                        disabled={!/^0x[0-9a-fA-F]{64}$/.test(legalInputs.reg) || !/^0x[0-9a-fA-F]{64}$/.test(legalInputs.tms)}
+                        style={btn("var(--gold)", "rgba(201,168,76,0.08)", !/^0x[0-9a-fA-F]{64}$/.test(legalInputs.reg) || !/^0x[0-9a-fA-F]{64}$/.test(legalInputs.tms))}>
+                        SUBMIT DOCUMENTS
+                      </button>
+                      <button onClick={() => { setActiveAction(null); setLegalInputs({ reg: "", tms: "", permit: "" }); }} style={btn("var(--text-dim)")}>CANCEL</button>
+                    </div>
+                  </div>
+                )}
+
+                {activeAction === actionKey("wallet") && (
+                  <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid var(--border)" }}>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--amber)", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
+                      ⚠ Once set, only the player can update this address. Verify the wallet belongs to the player before submitting.
+                    </p>
+                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                      <input type="text" placeholder="0x..." value={walletInput}
+                        onChange={e => setWalletInput(e.target.value.trim())}
+                        style={input}
+                      />
+                      <button onClick={() => setPlayerWallet(p.id)} style={btn("var(--gold)", "rgba(201,168,76,0.08)")}>SET WALLET</button>
+                      <button onClick={() => { setActiveAction(null); setWalletInput(""); }} style={btn("var(--text-dim)")}>CANCEL</button>
+                    </div>
+                  </div>
+                )}
+
+                {activeAction === actionKey("newwallet") && (
+                  <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid var(--border)" }}>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.35rem" }}>NEW WALLET ADDRESS — 48-HOUR TIMELOCK APPLIES</p>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--amber)", marginBottom: "0.5rem" }}>
+                      The club can cancel this update within 48 hours as a security safeguard.
+                    </p>
+                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                      <input type="text" placeholder="0x..." value={newWalletInput}
+                        onChange={e => setNewWalletInput(e.target.value.trim())}
+                        style={input}
+                      />
+                      <button onClick={() => initiateWalletUpdate(p.id)} style={btn("var(--gold)", "rgba(201,168,76,0.08)")}>INITIATE UPDATE</button>
+                      <button onClick={() => cancelWalletUpdate(p.id)} style={btn("var(--red)")}>CANCEL PENDING</button>
+                      <button onClick={() => { setActiveAction(null); setNewWalletInput(""); }} style={btn("var(--text-dim)")}>CLOSE</button>
+                    </div>
+                  </div>
+                )}
+
+                {activeAction === actionKey("terminate") && (
+                  <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid var(--border)", background: "rgba(220,38,38,0.03)" }}>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--red)", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>CONTRACT TERMINATION</p>
+                    <div style={{ display: "grid", gap: "1rem", gridTemplateColumns: "1fr 1fr" }}>
+                      {/* Mutual termination */}
+                      <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem" }}>
+                        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>MUTUAL TERMINATION</p>
+                        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-secondary)", marginBottom: "0.75rem", lineHeight: 1.5 }}>
+                          Player must be delisted. Requires player wallet confirmation. NFT burned on confirm.
+                        </p>
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                          <button onClick={() => proposeMutualTermination(p.id)} style={btn("var(--red)", "rgba(220,38,38,0.08)")}>
+                            PROPOSE MUTUAL
+                          </button>
+                          <button onClick={() => withdrawMutualTermination(p.id)} style={btn("var(--text-dim)")}>
+                            WITHDRAW PROPOSAL
+                          </button>
+                        </div>
+                      </div>
+                      {/* Unilateral termination */}
+                      <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem" }}>
+                        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>UNILATERAL TERMINATION</p>
+                        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--amber)", marginBottom: "0.75rem", lineHeight: 1.5 }}>
+                          ⚠ Player must be delisted first. 7-day dispute window — player can contest. NFT burned if undisputed.
+                        </p>
+                        <input type="text" placeholder="Reason (stored on-chain)"
+                          value={terminationReason}
+                          onChange={e => setTerminationReason(e.target.value)}
+                          style={{ ...input, marginBottom: "0.5rem", fontSize: "0.75rem", padding: "6px 10px" }}
+                        />
+                        <button onClick={() => proposeUnilateralTermination(p.id)}
+                          disabled={!terminationReason.trim()}
+                          style={btn("var(--red)", "rgba(220,38,38,0.08)", !terminationReason.trim())}>
+                          PROPOSE UNILATERAL
+                        </button>
+                      </div>
+                    </div>
+                    <button onClick={() => { setActiveAction(null); setTerminationReason(""); }}
+                      style={{ ...btn("var(--text-dim)"), marginTop: "0.75rem" }}>CLOSE</button>
+                  </div>
+                )}
+
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -20,6 +20,8 @@ interface Player {
   isVerified:          boolean;
   isListed:            boolean;
   medicalClearance:    boolean;
+  medicalVerified:     boolean;
+  verificationActive:  boolean;
   medicalDocumentHash: string;
   askingPrice:         bigint;
   releaseClause:       bigint;
@@ -108,6 +110,8 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             isVerified:          raw.isVerified,
             isListed:            raw.isListed,
             medicalClearance:    raw.medicalClearance,
+            medicalVerified:     raw.medicalVerified ?? false,
+            verificationActive:  false,
             medicalDocumentHash: raw.medicalDocumentHash,
             askingPrice:         raw.askingPrice,
             releaseClause:       raw.releaseClause,
@@ -560,7 +564,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           <RegistrarPanel
                             wallet={wallet}
                             playerId={p.id}
-                            player={{ isVerified: p.isVerified, medicalClearance: p.medicalClearance, playerWallet: p.playerWallet }}
+                            player={{ isVerified: p.isVerified, medicalClearance: p.medicalClearance, medicalVerified: p.medicalVerified ?? false, playerWallet: p.playerWallet, verificationActive: p.verificationActive ?? false }}
                             legalDocs={p._legalDocs ?? { documentsVerified: false, registrationContractHash: "0x" + "0".repeat(64) }}
                             onRefresh={loadPlayers}
                           />

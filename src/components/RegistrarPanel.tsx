@@ -4,43 +4,15 @@ import { waitForTx } from "../utils/waitForTx";
 import { parseError } from "../utils/parseError";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
-import { PLAYER_REGISTRY_ABI } from "../config/abis";
+import { PLAYER_REGISTRY_ABI, VERIFICATION_MANAGER_ABI } from "../config/abis";
 
 interface Props {
   wallet:    ReturnType<typeof useWallet>;
   playerId:  bigint;
-  player:    {
-    isVerified:       boolean;
-    medicalClearance: boolean;
-    playerWallet:     string;
-  };
-  legalDocs: {
-    documentsVerified:        boolean;
-    registrationContractHash: string;
-  };
+  player:    { isVerified: boolean; medicalClearance: boolean; medicalVerified: boolean; playerWallet: string; verificationActive: boolean; };
+  legalDocs: { documentsVerified: boolean; registrationContractHash: string; };
   onRefresh: () => Promise<void>;
 }
-
-const input = {
-  background:   "var(--bg-primary)",
-  border:       "1px solid var(--border)",
-  borderRadius: "var(--radius-sm)",
-  color:        "var(--text-primary)",
-  fontFamily:   "var(--font-mono)",
-  fontSize:     "0.75rem",
-  padding:      "7px 10px",
-  outline:      "none",
-  width:        "100%",
-};
-
-const labelStyle = {
-  fontFamily:    "var(--font-mono)",
-  fontSize:      "0.6rem",
-  color:         "var(--text-dim)",
-  letterSpacing: "0.08em",
-  marginBottom:  "0.35rem",
-  display:       "block" as const,
-};
 
 const btn = (color: string, bg = "transparent", disabled = false) => ({
   background:    disabled ? "transparent" : bg,
@@ -56,148 +28,94 @@ const btn = (color: string, bg = "transparent", disabled = false) => ({
   opacity:       disabled ? 0.5 : 1,
 });
 
-function isValidBytes32(value: string): boolean {
-  return /^0x[0-9a-fA-F]{64}$/.test(value);
-}
-
-function isValidAddress(value: string): boolean {
-  try {
-    ethers.getAddress(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 const ZERO_BYTES32 = "0x" + "0".repeat(64);
 
 export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh }: Props) {
-  const [status, setStatus]             = useState<string | null>(null);
-  const [medHash, setMedHash]           = useState("");
-  const [regHash, setRegHash]           = useState("");
-  const [tmsHash, setTmsHash]           = useState("");
-  const [permitHash, setPermitHash]     = useState("");
-  const [playerWallet, setPlayerWallet] = useState("");
-  const [expanded, setExpanded]         = useState<string | null>(null);
-  const [playerInfo, setPlayerInfo]     = useState<{
+  const [status, setStatus]         = useState<string | null>(null);
+  const [expanded, setExpanded]     = useState<string | null>(null);
+  const [playerInfo, setPlayerInfo] = useState<{
     name: string; position: string; nationality: string;
-    contractExpiry: bigint; weeklySalary: bigint; club: string; fifaId: string; clubName: string;
+    contractExpiry: bigint; weeklySalary: bigint; club: string; clubName: string;
+    verificationRequest: { feePaid: bigint; deadline: bigint; active: boolean; pauseSnapshot: bigint; } | null;
   } | null>(null);
 
   useEffect(() => {
-    async function fetchInfo() {
-      if (!wallet.provider) return;
-      try {
-        const registry = new ethers.Contract(
-          CONTRACTS.PlayerRegistry,
-          ["function getPlayer(uint256) view returns (tuple(string name,string position,string nationality,uint256 contractExpiry,uint256 weeklySalary,string portraitCID,bytes32 fifaId,address club,bool verified))", "function getClubName(address) view returns (string)"],
-          wallet.provider
-        );
-        const p = await registry.getPlayer(playerId);
-        let clubName = "";
-        try {
-          const name = await registry.getClubName(p.club);
-          clubName = name || "";
-        } catch {}
-        setPlayerInfo({
-          name: p.name, position: p.position, nationality: p.nationality,
-          contractExpiry: p.contractExpiry, weeklySalary: p.weeklySalary,
-          club: p.club, fifaId: p.fifaId, clubName,
-        });
-      } catch {}
-    }
-    fetchInfo();
+    if (!wallet.provider) return;
+    fetchPlayerInfo();
   }, [playerId, wallet.provider]);
 
-  function getRegistry() {
+  async function fetchPlayerInfo() {
+    if (!wallet.provider) return;
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
+      const vmgr     = new ethers.Contract(CONTRACTS.VerificationManager, VERIFICATION_MANAGER_ABI, wallet.provider);
+      const [raw, club] = await Promise.all([
+        registry.getPlayer(playerId),
+        registry.currentClub(playerId).catch(() => ethers.ZeroAddress),
+      ]);
+      let clubName = "";
+      try { clubName = await registry.getClubName(club); } catch {}
+      let verReq = null;
+      try {
+        const req = await vmgr.getVerificationRequest(playerId);
+        verReq = { feePaid: req.feePaid, deadline: req.deadline, active: req.active, pauseSnapshot: req.pauseSnapshot };
+      } catch {}
+      setPlayerInfo({
+        name: raw.name, position: raw.position, nationality: raw.nationality,
+        contractExpiry: raw.contractExpiry, weeklySalary: raw.weeklySalary,
+        club, clubName, verificationRequest: verReq,
+      });
+    } catch {}
+  }
+
+  function getVmgr() {
     if (!wallet.signer) throw new Error("Wallet not connected");
-    return new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+    return new ethers.Contract(CONTRACTS.VerificationManager, VERIFICATION_MANAGER_ABI, wallet.signer);
   }
 
-  async function verifyPlayer() {
-    setStatus("Verifying player...");
+  async function verifyMedicalClearance() {
+    setStatus("Verifying medical clearance...");
     try {
-      const registry = getRegistry();
-      await waitForTx(await registry.verifyPlayer(playerId), wallet.provider!);
-      setStatus("Player verified.");
-      setExpanded(null);
-      await onRefresh();
-    } catch (err: any) {
-      setStatus(parseError(err));
-    }
-  }
-
-  async function setMedicalClearance() {
-    if (!isValidBytes32(medHash)) {
-      setStatus("Invalid document hash. Must be a 0x-prefixed 32-byte hex string.");
-      return;
-    }
-    setStatus("Setting medical clearance...");
-    try {
-      const registry = getRegistry();
-      await waitForTx(await registry.setMedicalClearance(playerId, medHash), wallet.provider!);
-      setStatus("Medical clearance set.");
-      setMedHash("");
-      setExpanded(null);
-      await onRefresh();
-    } catch (err: any) {
-      setStatus(parseError(err));
-    }
-  }
-
-  async function submitLegalDocuments() {
-    if (!isValidBytes32(regHash))  { setStatus("Invalid registration contract hash."); return; }
-if (!isValidBytes32(tmsHash))  { setStatus("Invalid FIFA TMS hash."); return; }
-
-    const workPermit = permitHash === "" ? ZERO_BYTES32 : permitHash;
-    if (permitHash !== "" && !isValidBytes32(permitHash)) {
-      setStatus("Invalid work permit hash.");
-      return;
-    }
-
-    setStatus("Submitting legal documents...");
-    try {
-      const registry = getRegistry();
-      await waitForTx(await registry.submitLegalDocuments(playerId, regHash, tmsHash, workPermit), wallet.provider!);
-      setStatus("Legal documents submitted.");
-      setRegHash(""); setTmsHash(""); setPermitHash("");
-      setExpanded(null);
-      await onRefresh();
-    } catch (err: any) {
-      console.error("submitLegalDocuments error:", err);
-      setStatus(parseError(err));
-    }
+      await waitForTx(await getVmgr().verifyMedicalClearance(playerId), wallet.provider!);
+      setStatus("Medical clearance verified.");
+      setExpanded(null); await onRefresh(); await fetchPlayerInfo();
+    } catch (err: any) { setStatus(parseError(err)); }
   }
 
   async function verifyLegalDocuments() {
     setStatus("Verifying legal documents...");
     try {
-      const registry = getRegistry();
-      await waitForTx(await registry.verifyLegalDocuments(playerId), wallet.provider!);
+      await waitForTx(await getVmgr().verifyLegalDocuments(playerId), wallet.provider!);
       setStatus("Legal documents verified.");
-      setExpanded(null);
-      await onRefresh();
-    } catch (err: any) {
-      setStatus(parseError(err));
-    }
+      setExpanded(null); await onRefresh();
+    } catch (err: any) { setStatus(parseError(err)); }
   }
 
-  async function setPlayerWalletAddress() {
-    if (!isValidAddress(playerWallet)) {
-      setStatus("Invalid Ethereum address.");
-      return;
-    }
-    setStatus("Setting player wallet...");
+  async function verifyPlayer() {
+    setStatus("Completing player verification...");
     try {
-      const registry = getRegistry();
-      await waitForTx(await registry.setPlayerWallet(playerId, playerWallet), wallet.provider!);
-      setStatus("Player wallet set. Only the player can update this going forward.");
-      setPlayerWallet("");
-      setExpanded(null);
-      await onRefresh();
-    } catch (err: any) {
-      setStatus(parseError(err));
-    }
+      await waitForTx(await getVmgr().verifyPlayer(playerId), wallet.provider!);
+      setStatus("Player verification complete. Fees distributed.");
+      setExpanded(null); await onRefresh(); await fetchPlayerInfo();
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function rejectVerification() {
+    setStatus("Rejecting verification...");
+    try {
+      await waitForTx(await getVmgr().rejectVerification(playerId), wallet.provider!);
+      setStatus("Verification rejected. Fee retained by registrar and protocol.");
+      setExpanded(null); await onRefresh(); await fetchPlayerInfo();
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
+  async function resetPlayerWallet() {
+    setStatus("Resetting player wallet...");
+    try {
+      await waitForTx(await getVmgr().resetPlayerWallet(playerId), wallet.provider!);
+      setStatus("Player wallet reset to zero. Club can now set a new wallet address.");
+      setExpanded(null); await onRefresh();
+    } catch (err: any) { setStatus(parseError(err)); }
   }
 
   const sectionStyle = (key: string) => ({
@@ -209,35 +127,26 @@ if (!isValidBytes32(tmsHash))  { setStatus("Invalid FIFA TMS hash."); return; }
 
   const sectionHeader = (key: string, title: string, done: boolean) => (
     <div
-      onClick={() => !done && setExpanded(expanded === key ? null : key)}
-      style={{
-        display:        "flex",
-        justifyContent: "space-between",
-        alignItems:     "center",
-        padding:        "0.6rem 1rem",
-        cursor:         done ? "default" : "pointer",
-        background:     expanded === key ? "rgba(255,255,255,0.03)" : "transparent",
-      }}
+      onClick={() => setExpanded(expanded === key ? null : key)}
+      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 1rem", cursor: "pointer", background: expanded === key ? "rgba(255,255,255,0.03)" : "transparent" }}
     >
       <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: done ? "var(--green)" : "var(--text-secondary)" }}>
         {done ? "✓ " : ""}{title}
       </span>
-      {!done && (
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)" }}>
-          {expanded === key ? "▲" : "▼"}
-        </span>
-      )}
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)" }}>
+        {expanded === key ? "▲" : "▼"}
+      </span>
     </div>
   );
 
+  const hasActiveRequest = player.verificationActive && playerInfo?.verificationRequest?.active;
+  const requestDeadline  = playerInfo?.verificationRequest?.deadline;
+  const deadlineExpired  = requestDeadline ? BigInt(Math.floor(Date.now() / 1000)) > requestDeadline : false;
+  const medDone          = player.medicalClearance && player.medicalVerified;
+  const legalDone        = legalDocs.documentsVerified;
+
   return (
-    <div style={{
-      background:   "rgba(201,168,76,0.03)",
-      border:       "1px solid var(--gold-dim)",
-      borderRadius: "var(--radius-sm)",
-      padding:      "1rem 1.25rem",
-      marginTop:    "0.75rem",
-    }}>
+    <div style={{ background: "rgba(201,168,76,0.03)", border: "1px solid var(--gold-dim)", borderRadius: "var(--radius-sm)", padding: "1rem 1.25rem", marginTop: "0.75rem" }}>
       <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--gold)", letterSpacing: "0.1em", marginBottom: "0.75rem" }}>
         REGISTRAR ACTIONS — PLAYER #{playerId.toString()}
       </p>
@@ -247,12 +156,12 @@ if (!isValidBytes32(tmsHash))  { setStatus("Invalid FIFA TMS hash."); return; }
           <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.6rem" }}>PLAYER INFORMATION</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem 1.5rem" }}>
             {[
-              ["NAME",             playerInfo.name],
-              ["POSITION",         playerInfo.position],
-              ["NATIONALITY",      playerInfo.nationality],
-              ["CLUB",             (playerInfo.clubName ? playerInfo.clubName + " — " : "") + playerInfo.club.slice(0,10) + "..." + playerInfo.club.slice(-6)],
-              ["CONTRACT EXPIRY",  new Date(Number(playerInfo.contractExpiry) * 1000).toLocaleDateString()],
-              ["WEEKLY SALARY",    playerInfo.weeklySalary > 0n ? ethers.formatUnits(playerInfo.weeklySalary, 6) + " USDC" : "—"],
+              ["NAME",            playerInfo.name],
+              ["POSITION",        playerInfo.position],
+              ["NATIONALITY",     playerInfo.nationality],
+              ["CLUB",            (playerInfo.clubName ? playerInfo.clubName + " — " : "") + playerInfo.club.slice(0,10) + "..." + playerInfo.club.slice(-6)],
+              ["CONTRACT EXPIRY", new Date(Number(playerInfo.contractExpiry) * 1000).toLocaleDateString()],
+              ["WEEKLY SALARY",   playerInfo.weeklySalary > 0n ? ethers.formatUnits(playerInfo.weeklySalary, 6) + " EURC" : "—"],
             ].map(([label, val]) => (
               <div key={label}>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--text-dim)", letterSpacing: "0.08em", display: "block" }}>{label}</span>
@@ -263,141 +172,115 @@ if (!isValidBytes32(tmsHash))  { setStatus("Invalid FIFA TMS hash."); return; }
         </div>
       )}
 
-      <div style={sectionStyle("verify")}>
-        {sectionHeader("verify", "Step 1: Player Verification", player.isVerified)}
-        {!player.isVerified && expanded === "verify" && (
-          <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", marginBottom: "0.75rem" }}>
-              Confirm the player's eligibility to participate in the protocol.
+      {hasActiveRequest && (
+        <div style={{ background: "rgba(201,168,76,0.06)", border: "1px solid var(--gold-dim)", borderRadius: "var(--radius-sm)", padding: "0.6rem 1rem", marginBottom: "0.75rem" }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--gold)" }}>
+            ⚡ VERIFICATION REQUEST ACTIVE
+            {requestDeadline && ` — deadline: ${new Date(Number(requestDeadline) * 1000).toLocaleString()}`}
+            {deadlineExpired && <span style={{ color: "var(--red)" }}> — EXPIRED</span>}
+          </p>
+          {playerInfo?.verificationRequest?.feePaid && playerInfo.verificationRequest.feePaid > 0n && (
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
+              Fee locked: {ethers.formatUnits(playerInfo.verificationRequest.feePaid, 6)} EURC
             </p>
-            <button onClick={verifyPlayer} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>
-              VERIFY PLAYER
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
+
+      {!hasActiveRequest && !player.isVerified && (
+        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "0.6rem 1rem", marginBottom: "0.75rem" }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)" }}>
+            Waiting for club to submit a verification request and pay the verification fee.
+          </p>
+        </div>
+      )}
 
       <div style={sectionStyle("medical")}>
-        {sectionHeader("medical", "Step 2: Medical Clearance", player.medicalClearance)}
-        {!player.medicalClearance && expanded === "medical" && (
+        {sectionHeader("medical", "Step 1: Verify Medical Clearance", medDone)}
+        {expanded === "medical" && (
           <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", marginBottom: "0.75rem" }}>
-              Paste the keccak256 hash of the medical report. The document itself stays off-chain.
-            </p>
-            <div style={{ marginBottom: "0.75rem" }}>
-              <span style={labelStyle}>MEDICAL REPORT HASH (bytes32)</span>
-              <input
-                type="text"
-                placeholder="0x..."
-                value={medHash}
-                onChange={e => setMedHash(e.target.value.trim())}
-                style={{ ...input, borderColor: medHash && !isValidBytes32(medHash) ? "var(--red)" : "var(--border)" }}
-              />
-              {medHash && !isValidBytes32(medHash) && (
-                <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--red)", marginTop: "0.3rem" }}>
-                  Must be 0x followed by 64 hex characters
-                </p>
-              )}
-            </div>
-            <button
-              onClick={setMedicalClearance}
-              disabled={!isValidBytes32(medHash)}
-              style={btn("var(--green)", "rgba(45,206,137,0.08)", !isValidBytes32(medHash))}>
-              SET MEDICAL CLEARANCE
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div style={sectionStyle("legal")}>
-        {sectionHeader("legal", "Step 3: Legal Documents", legalDocs.documentsVerified)}
-        {!legalDocs.documentsVerified && expanded === "legal" && (
-          <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
-            {legalDocs.registrationContractHash === ZERO_BYTES32 ? (
-              <>
-                <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", marginBottom: "0.75rem" }}>
-                  Submit document hashes. All documents stay off-chain — only their hashes are stored on-chain.
-                </p>
-                <div style={{ display: "grid", gap: "0.6rem", marginBottom: "0.75rem" }}>
-                  {[
-                    { key: "reg",    title: "REGISTRATION CONTRACT HASH", value: regHash,    set: setRegHash,    required: true  },
-                    { key: "tms",    title: "FIFA TMS REFERENCE HASH",    value: tmsHash,    set: setTmsHash,    required: true  },
-                    { key: "permit", title: "WORK PERMIT HASH (optional)", value: permitHash, set: setPermitHash, required: false },
-                  ].map(f => (
-                    <div key={f.key}>
-                      <span style={labelStyle}>{f.title}</span>
-                      <input
-                        type="text"
-                        placeholder={f.required ? "0x..." : "0x... (leave blank for domestic transfers)"}
-                        value={f.value}
-                        onChange={e => f.set(e.target.value.trim())}
-                        style={{ ...input, borderColor: f.value && !isValidBytes32(f.value) ? "var(--red)" : "var(--border)" }}
-                      />
-                      {f.value && !isValidBytes32(f.value) && (
-                        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--red)", marginTop: "0.2rem" }}>
-                          Must be 0x followed by 64 hex characters
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={submitLegalDocuments}
-                  disabled={!isValidBytes32(regHash) || !isValidBytes32(tmsHash)}
-                  style={btn("var(--gold)", "rgba(201,168,76,0.08)",
-                    !isValidBytes32(regHash) || !isValidBytes32(tmsHash))}>
-                  SUBMIT DOCUMENTS
-                </button>
-              </>
+            {!player.medicalClearance ? (
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)" }}>Club has not submitted medical clearance yet.</p>
+            ) : medDone ? (
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--green)" }}>✓ Medical clearance already verified.</p>
             ) : (
               <>
                 <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", marginBottom: "0.75rem" }}>
-                  Documents submitted. Verify after completing off-chain review.
+                  Review the submitted medical document hash off-chain. Call this only after completing your off-chain review.
                 </p>
-                <button onClick={verifyLegalDocuments} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>
-                  VERIFY DOCUMENTS
+                <button onClick={verifyMedicalClearance} disabled={!hasActiveRequest} style={btn("var(--green)", "rgba(45,206,137,0.08)", !hasActiveRequest)}>
+                  VERIFY MEDICAL CLEARANCE
                 </button>
+                {!hasActiveRequest && <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", marginTop: "0.35rem" }}>Requires an active verification request from the club.</p>}
               </>
             )}
           </div>
         )}
       </div>
 
-      <div style={sectionStyle("wallet")}>
-        {sectionHeader("wallet", "Step 4: Player Wallet", player.playerWallet !== ethers.ZeroAddress)}
-        {player.playerWallet === ethers.ZeroAddress && expanded === "wallet" && (
+      <div style={sectionStyle("legal")}>
+        {sectionHeader("legal", "Step 2: Verify Legal Documents", legalDone)}
+        {expanded === "legal" && (
           <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--amber)", marginBottom: "0.75rem" }}>
-              ⚠ Once set, only the player can update this address. Verify the wallet belongs to the player before submitting.
-            </p>
-            <div style={{ marginBottom: "0.75rem" }}>
-              <span style={labelStyle}>PLAYER WALLET ADDRESS</span>
-              <input
-                type="text"
-                placeholder="0x..."
-                value={playerWallet}
-                onChange={e => setPlayerWallet(e.target.value.trim())}
-                style={{ ...input, borderColor: playerWallet && !isValidAddress(playerWallet) ? "var(--red)" : "var(--border)" }}
-              />
-              {playerWallet && !isValidAddress(playerWallet) && (
-                <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--red)", marginTop: "0.3rem" }}>
-                  Invalid Ethereum address
+            {legalDocs.registrationContractHash === ZERO_BYTES32 ? (
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)" }}>Club has not submitted legal document hashes yet.</p>
+            ) : legalDone ? (
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--green)" }}>✓ Legal documents already verified.</p>
+            ) : (
+              <>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", marginBottom: "0.75rem" }}>
+                  Review the submitted document hashes against the physical documents off-chain.
                 </p>
-              )}
-            </div>
-            <button
-              onClick={setPlayerWalletAddress}
-              disabled={!isValidAddress(playerWallet)}
-              style={btn("var(--gold)", "rgba(201,168,76,0.08)", !isValidAddress(playerWallet))}>
-              SET PLAYER WALLET
-            </button>
+                <button onClick={verifyLegalDocuments} disabled={!hasActiveRequest} style={btn("var(--green)", "rgba(45,206,137,0.08)", !hasActiveRequest)}>
+                  VERIFY LEGAL DOCUMENTS
+                </button>
+                {!hasActiveRequest && <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", marginTop: "0.35rem" }}>Requires an active verification request from the club.</p>}
+              </>
+            )}
           </div>
         )}
-        {player.playerWallet !== ethers.ZeroAddress && (
-          <div style={{ padding: "0.4rem 1rem" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)" }}>
-              {player.playerWallet.slice(0, 10)}...{player.playerWallet.slice(-8)}
-            </span>
+      </div>
+
+      <div style={sectionStyle("verify")}>
+        {sectionHeader("verify", "Step 3: Final Player Verification", player.isVerified)}
+        {expanded === "verify" && (
+          <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
+            {player.isVerified ? (
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--green)" }}>✓ Player is fully verified.</p>
+            ) : (
+              <>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)", marginBottom: "0.75rem" }}>
+                  Both medical and legal verification must be complete before this step. Completing this action distributes the verification fee.
+                </p>
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                  <button onClick={verifyPlayer} disabled={!hasActiveRequest || !medDone || !legalDone}
+                    style={btn("var(--green)", "rgba(45,206,137,0.08)", !hasActiveRequest || !medDone || !legalDone)}>
+                    APPROVE &amp; VERIFY PLAYER
+                  </button>
+                  <button onClick={rejectVerification} disabled={!hasActiveRequest}
+                    style={btn("var(--red)", "transparent", !hasActiveRequest)}>
+                    REJECT VERIFICATION
+                  </button>
+                </div>
+                {(!medDone || !legalDone) && (
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--amber)", marginTop: "0.35rem" }}>
+                    Complete medical and legal verification steps first.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={sectionStyle("walletreset")}>
+        {sectionHeader("walletreset", "Emergency: Reset Player Wallet", false)}
+        {expanded === "walletreset" && (
+          <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--amber)", marginBottom: "0.75rem" }}>
+              ⚠ Use only if the player reports a compromised wallet. This resets the wallet address to zero — the club must then set a new wallet via the Club panel.
+            </p>
+            <button onClick={resetPlayerWallet} style={btn("var(--red)")}>RESET PLAYER WALLET</button>
           </div>
         )}
       </div>

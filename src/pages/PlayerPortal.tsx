@@ -41,8 +41,8 @@ interface ActiveDeal {
   buyingClub:           string;
   paymentToken:         string;
   transferFee:          bigint;
-  salaryGuaranteeAmount: bigint;
-  salaryGuaranteeClaimed: boolean;
+  signingBonusAmount:    bigint;
+  signingBonusClaimed:   boolean;
   state:                number;
   stateDeadline:        bigint;
   medicalHash:          string;
@@ -123,11 +123,11 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
         try {
           const dealId: bigint = await dealEscrow.getPlayerDeal(player.id)
           if (dealId === 0n) continue
-          const d = await dealEscrow.getDeal(dealId)
+          const d = await dealEscrow.getDealView(dealId)
           const state = Number(d.state)
-          // I skip completed/cancelled deals unless there's a claimable salary guarantee
+          // I skip completed/cancelled deals unless there's a claimable signing bonus
           if (state === 17) continue
-          if (state === 16 && d.salaryGuaranteeAmount === 0n) continue
+          if (state === 16 && (d.signingBonusAmount ?? 0n) === 0n) continue
           deals.push({
             dealId,
             playerId:              player.id,
@@ -136,8 +136,8 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
             buyingClub:            d.buyingClub,
             paymentToken:          d.paymentToken,
             transferFee:           d.transferFee,
-            salaryGuaranteeAmount: d.salaryGuaranteeAmount,
-            salaryGuaranteeClaimed: d.salaryGuaranteeClaimed,
+            signingBonusAmount:    d.signingBonusAmount ?? 0n,
+            signingBonusClaimed:   d.signingBonusClaimed ?? false,
             state,
             stateDeadline:         d.stateDeadline,
             medicalHash:           d.medicalHash,
@@ -202,12 +202,12 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
     }
   }
 
-  async function claimSalaryGuarantee(dealId: bigint) {
+  async function claimSigningBonus(dealId: bigint) {
     if (!wallet.signer) return
-    setTxStatus("Claiming salary guarantee...")
+    setTxStatus("Claiming signing bonus...")
     try {
       const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer)
-      await waitForTx(await dealEscrow.claimSalaryGuarantee(dealId), wallet.provider!)
+      await waitForTx(await dealEscrow.claimSigningBonus(dealId), wallet.provider!)
       setTxStatus("Salary guarantee claimed.")
       await loadPortal()
     } catch (err: any) {
@@ -240,7 +240,7 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
       <div style={{ marginBottom: "2.5rem" }}>
         <h1 style={{ fontSize: "3.5rem", color: "var(--gold)", marginBottom: "0.5rem" }}>PLAYER PORTAL</h1>
         <p style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>
-          Consent to transfers, submit medicals, claim salary guarantees
+          Consent to transfers, submit medicals, claim signing bonuss
         </p>
       </div>
 
@@ -286,7 +286,7 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
             const expired = isExpired(deal.stateDeadline)
             const needsConsent = deal.state === 5 || deal.state === 10
             const needsMedical = (deal.state === 6 || deal.state === 11) && deal.medicalHash === ("0x" + "0".repeat(64))
-            const canClaim = deal.state === 16 && deal.salaryGuaranteeAmount > 0n && !deal.salaryGuaranteeClaimed
+            const canClaim = deal.state === 16 && deal.signingBonusAmount > 0n && !deal.signingBonusClaimed
             const showWithdraw = deal.state === 16 || deal.state === 17
 
             return (
@@ -314,7 +314,7 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
                   {[
                     { label: "SELLING CLUB", value: `${deal.sellingClub.slice(0,8)}...${deal.sellingClub.slice(-6)}` },
                     { label: "BUYING CLUB",  value: `${deal.buyingClub.slice(0,8)}...${deal.buyingClub.slice(-6)}` },
-                    { label: "SALARY GUARANTEE", value: deal.salaryGuaranteeAmount > 0n ? `€${(Number(deal.salaryGuaranteeAmount) / 1e6).toLocaleString()}` : "None" },
+                    { label: "SALARY GUARANTEE", value: deal.signingBonusAmount > 0n ? `€${(Number(deal.signingBonusAmount) / 1e6).toLocaleString()}` : "None" },
                   ].map(({ label, value }) => (
                     <div key={label} style={{ background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem" }}>
                       <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "0.35rem" }}>{label}</p>
@@ -331,7 +331,7 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
                     </p>
                     <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
                       {deal.buyingClub.slice(0,8)}...{deal.buyingClub.slice(-6)} wants to sign you for €{(Number(deal.transferFee) / 1e6).toLocaleString()}.
-                      {deal.salaryGuaranteeAmount > 0n && ` Includes €${(Number(deal.salaryGuaranteeAmount) / 1e6).toLocaleString()} salary guarantee.`}
+                      {deal.signingBonusAmount > 0n && ` Includes €${(Number(deal.signingBonusAmount) / 1e6).toLocaleString()} signing bonus.`}
                     </p>
                     <div style={{ display: "flex", gap: "0.75rem" }}>
                       <button onClick={() => consentToTransfer(deal.dealId)} style={btn("var(--green)", "rgba(45,206,137,0.1)")}>
@@ -400,13 +400,13 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
                 {canClaim && (
                   <div style={{ background: "rgba(45,206,137,0.06)", border: "1px solid var(--green)44", borderRadius: "var(--radius-sm)", padding: "1rem 1.25rem", marginBottom: "1rem" }}>
                     <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--green)", marginBottom: "0.75rem", letterSpacing: "0.06em" }}>
-                      💰 SALARY GUARANTEE AVAILABLE
+                      💰 SIGNING BONUS AVAILABLE
                     </p>
                     <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                      €{(Number(deal.salaryGuaranteeAmount) / 1e6).toLocaleString()} is ready to claim from your completed transfer.
+                      €{(Number(deal.signingBonusAmount) / 1e6).toLocaleString()} is ready to claim from your completed transfer.
                     </p>
-                    <button onClick={() => claimSalaryGuarantee(deal.dealId)} style={btn("var(--green)", "rgba(45,206,137,0.1)")}>
-                      CLAIM SALARY GUARANTEE
+                    <button onClick={() => claimSigningBonus(deal.dealId)} style={btn("var(--green)", "rgba(45,206,137,0.1)")}>
+                      CLAIM SIGNING BONUS
                     </button>
                   </div>
                 )}
