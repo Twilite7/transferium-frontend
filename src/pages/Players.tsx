@@ -107,7 +107,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             isListed:            raw.isListed,
             medicalClearance:    raw.medicalClearance,
             medicalVerified:     raw.medicalVerified ?? false,
-            verificationActive:  false,
+            verificationActive:  await registry.verificationActive(i).catch(() => false),
             medicalDocumentHash: raw.medicalDocumentHash,
             askingPrice:         raw.askingPrice,
             releaseClause:       raw.releaseClause,

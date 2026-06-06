@@ -1,4 +1,3 @@
-// cache-bust: 20260606222207
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { CONTRACTS } from "./config/contracts";
