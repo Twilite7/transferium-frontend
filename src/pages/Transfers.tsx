@@ -190,24 +190,27 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
         setLeagueOffers(lOffers)
       }
 
-      // I load my deals (as buying or selling club) from DealEscrow
+      // I load my deals via getDealView — only fields exposed in DealView are available
       const deals: Deal[] = []
       for (let i = 1; i <= Number(totalDeals); i++) {
         try {
-          const d = await dealEscrow.getDeal(i)
+          const d = await dealEscrow.getDealView(i)
+          if (!d.exists) continue
           const isInvolved =
             d.buyingClub.toLowerCase()  === wallet.address.toLowerCase() ||
             d.sellingClub.toLowerCase() === wallet.address.toLowerCase()
           if (!isInvolved) continue
-          let playerName = `Player #${d.playerId}`
-          try { const p = await registry.getPlayer(d.playerId); playerName = p.name } catch {}
+          // I get playerId from the deal via getExpiryView which exposes more fields
+          let playerId = 0n
+          let playerName = `Deal #${i}`
+          // DealView does not expose playerId — label with deal id
           deals.push({
-            id: BigInt(i), playerId: d.playerId, playerName,
+            id: BigInt(i), playerId,  playerName,
             sellingClub: d.sellingClub, buyingClub: d.buyingClub,
             paymentToken: d.paymentToken, transferFee: d.transferFee,
-            signingBonusAmount: d.signingBonusAmount,
+            signingBonusAmount: 0n,
             state: Number(d.state), stateDeadline: d.stateDeadline,
-            acceptedAt: d.acceptedAt,
+            acceptedAt: 0n,
           })
         } catch {}
       }

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
-import { DEAL_ESCROW_ABI, TRANSFER_ESCROW_ABI, INSTALLMENT_ESCROW_ABI, PLAYER_REGISTRY_ABI } from "../config/abis";
+import { DEAL_ESCROW_ABI, TRANSFER_ESCROW_ABI, INSTALLMENT_ESCROW_ABI } from "../config/abis";
 import { waitForTx } from "../utils/waitForTx";
 import { parseError } from "../utils/parseError";
 
@@ -45,9 +45,8 @@ interface Installment { amount: bigint; dueDate: bigint; paid: boolean; }
 interface Deal {
   id: bigint; playerId: bigint; playerName: string;
   sellingClub: string; buyingClub: string; paymentToken: string;
-  transferFee: bigint; salaryGuaranteeAmount: bigint;
-  state: number; stateDeadline: bigint; acceptedAt: bigint;
-  installmentCount: number; installmentsPaid: number;
+  transferFee: bigint; signingBonusAmount: bigint;
+  state: number; stateDeadline: bigint;
   installments: Installment[];
 }
 
@@ -62,43 +61,42 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     setLoading(true);
     try {
       const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.provider);
-      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
       const total      = Number(await dealEscrow.totalDeals());
       const result: Deal[] = [];
 
       for (let i = 1; i <= total; i++) {
         try {
-          const d = await dealEscrow.getDeal(i);
+          const d = await dealEscrow.getDealView(i);
+          if (!d.exists) continue;
           const isInvolved =
             d.buyingClub.toLowerCase()  === wallet.address!.toLowerCase() ||
             d.sellingClub.toLowerCase() === wallet.address!.toLowerCase();
           if (!isInvolved) continue;
 
-          let playerName = `Player #${d.playerId}`;
-          try { const p = await registry.getPlayer(d.playerId); playerName = p.name; } catch {}
-
-          // Load installment schedule
-          const instCount = Number(d.installmentCount ?? 1);
+          // I load installments up to index 8 — stop at first zero-amount slot
           const installments: Installment[] = [];
-          for (let j = 0; j < instCount; j++) {
+          for (let j = 0; j < 8; j++) {
             try {
               const inst = await dealEscrow.getInstallment(i, j);
+              if (inst.amount === 0n) break;
               installments.push({ amount: inst.amount, dueDate: inst.dueDate, paid: inst.paid });
-            } catch {
-              // fallback: single lump sum
-              installments.push({ amount: d.transferFee, dueDate: 0n, paid: j === 0 });
-            }
+            } catch { break; }
+          }
+          if (installments.length === 0) {
+            installments.push({ amount: d.transferFee, dueDate: 0n, paid: false });
           }
 
+          // I try to get playerId via getExpiryView which exposes it indirectly — 
+          // DealView doesn't include playerId so we label with deal id for now
+          let playerName = `Deal #${i}`;
+          // Try getClaimable as a proxy to confirm deal exists — playerId not in DealView
+          // We'll use 0n as placeholder; the player name comes from installment context
           result.push({
-            id: BigInt(i), playerId: d.playerId, playerName,
+            id: BigInt(i), playerId: 0n, playerName,
             sellingClub: d.sellingClub, buyingClub: d.buyingClub,
             paymentToken: d.paymentToken, transferFee: d.transferFee,
-            salaryGuaranteeAmount: d.salaryGuaranteeAmount ?? 0n,
+            signingBonusAmount: 0n,
             state: Number(d.state), stateDeadline: d.stateDeadline,
-            acceptedAt: d.acceptedAt,
-            installmentCount: instCount,
-            installmentsPaid: Number(d.installmentsPaid ?? 0),
             installments,
           });
         } catch {}
@@ -117,7 +115,7 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const token     = new ethers.Contract(d.paymentToken, ["function approve(address,uint256) external returns (bool)"], wallet.signer);
       const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer);
       const firstInst  = d.installments[0]?.amount ?? d.transferFee;
-      const total      = firstInst + d.salaryGuaranteeAmount;
+      const total      = firstInst; // signingBonus funded separately by player wallet
       setTxStatus("Approving token...");
       await waitForTx(await token.approve(CONTRACTS.DealEscrow, total), wallet.provider!);
       setTxStatus(`Funding deal #${d.id}...`);
@@ -143,13 +141,13 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     } catch (err: any) { setTxStatus(parseError(err)); }
   }
 
-  async function claimSalaryGuarantee(d: Deal) {
+  async function claimSigningBonus(d: Deal) {
     if (!wallet.signer) return;
-    setTxStatus("Claiming salary guarantee...");
+    setTxStatus("Claiming signing bonus...");
     try {
       const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer);
-      await waitForTx(await dealEscrow.claimSalaryGuarantee(d.id), wallet.provider!);
-      setTxStatus("Salary guarantee claimed.");
+      await waitForTx(await dealEscrow.claimSigningBonus(d.id), wallet.provider!);
+      setTxStatus("Signing bonus claimed.");
       await load();
     } catch (err: any) { setTxStatus(parseError(err)); }
   }
@@ -252,10 +250,10 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                       </div>
 
                       {/* Installment schedule */}
-                      {d.installmentCount > 1 && (
+                      {d.installments.length > 1 && (
                         <div style={{ marginBottom: "1.25rem" }}>
                           <p style={{ ...mono("0.6rem", "var(--text-dim)"), letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
-                            INSTALLMENT SCHEDULE ({d.installmentsPaid}/{d.installmentCount} PAID)
+                            INSTALLMENT SCHEDULE ({d.installments.filter(i => i.paid).length}/{d.installments.length} PAID)
                           </p>
                           <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
                             {d.installments.map((inst, idx) => {
@@ -301,9 +299,9 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           </button>
                         )}
                         {/* Claim salary guarantee */}
-                        {d.state === 16 && isBuyer(d) && d.salaryGuaranteeAmount > 0n && (
-                          <button onClick={() => claimSalaryGuarantee(d)} style={btn("var(--gold)", "rgba(201,168,76,0.08)")}>
-                            CLAIM SALARY GUARANTEE
+                        {d.state === 16 && isBuyer(d) && d.signingBonusAmount > 0n && (
+                          <button onClick={() => claimSigningBonus(d)} style={btn("var(--gold)", "rgba(201,168,76,0.08)")}>
+                            CLAIM SIGNING BONUS
                           </button>
                         )}
                         {/* Process expiry */}

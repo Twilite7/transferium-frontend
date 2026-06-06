@@ -9,12 +9,13 @@ import { parseError } from "../utils/parseError";
 const EURC = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a";
 
 const SWAP_STATES: Record<number,string> = {
-  0:"NONE",1:"PROPOSED",2:"ACCEPTED",3:"PLAYER_A_CONSENTED",4:"BOTH_CONSENTED",
-  5:"AWAITING_MEDICAL",6:"FUNDED",7:"DISPUTE",8:"COMPLETED",9:"CANCELLED",10:"MUTUAL_CANCEL_PROPOSED",
+  0:"NONE", 1:"PROPOSED", 2:"ACCEPTED", 3:"ONE_PLAYER_CONSENTED", 4:"BOTH_CONSENTED",
+  5:"ONE_MEDICAL_DONE", 6:"BOTH_MEDICALS_DONE", 7:"FUNDED", 8:"DISPUTE",
+  9:"COMPLETED", 10:"CANCELLED",
 };
 const FT_STATES: Record<number,string> = {
-  0:"NONE",1:"PROPOSED",2:"PRE_CONTRACT_SIGNED",3:"DEPOSIT_LOCKED",
-  4:"AWAITING_MEDICAL",5:"COMPLETED",6:"CANCELLED",
+  0:"NONE", 1:"RELEASED", 2:"PRE_CONTRACT_PROPOSED", 3:"PRE_CONTRACT_SIGNED",
+  4:"AWAITING_MEDICAL", 5:"PENDING_WINDOW", 6:"COMPLETED", 7:"CANCELLED",
 };
 
 const btn = (color: string, bg = "transparent", disabled = false) => ({
@@ -110,7 +111,7 @@ export function Special({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const ftList: FT[] = [];
       for (let i = 1; i <= totalFTs; i++) {
         try {
-          const ft = await ftEscrow.getFreeTransfer(i);
+          const ft = await ftEscrow.getFT(i);
           const isInvolved = ft.buyingClub.toLowerCase() === wallet.address!.toLowerCase();
           if (!isInvolved) continue;
           let playerName = `#${ft.playerId}`;
@@ -287,7 +288,7 @@ export function Special({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           })} style={btn("var(--red)")}>REJECT</button>
                         </>
                       )}
-                      {(s.state === 2 || s.state === 3) && (
+                      {(s.state === 2 || s.state === 3) && ( // ACCEPTED or ONE_PLAYER_CONSENTED
                         <button onClick={() => swapAction(async () => {
                           const e = new ethers.Contract(CONTRACTS.SwapEscrow, SWAP_ESCROW_ABI, wallet.signer!);
                           setTxStatus("Consenting...");
@@ -295,7 +296,7 @@ export function Special({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           setTxStatus("Consented.");
                         })} style={btn("var(--gold)", "rgba(201,168,76,0.08)")}>CONSENT</button>
                       )}
-                      {s.state === 4 && (
+                      {s.state === 6 && ( // BOTH_MEDICALS_DONE
                         <button onClick={() => swapAction(async () => {
                           const token = new ethers.Contract(s.paymentToken, ["function approve(address,uint256) external returns (bool)"], wallet.signer!);
                           const e = new ethers.Contract(CONTRACTS.SwapEscrow, SWAP_ESCROW_ABI, wallet.signer!);
@@ -308,7 +309,7 @@ export function Special({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           setTxStatus("Swap funded.");
                         })} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>FUND SWAP</button>
                       )}
-                      {s.stateDeadline > 0n && now > s.stateDeadline && s.state < 8 && (
+                      {s.stateDeadline > 0n && now > s.stateDeadline && s.state < 9 && (
                         <button onClick={() => swapAction(async () => {
                           const e = new ethers.Contract(CONTRACTS.SwapEscrow, SWAP_ESCROW_ABI, wallet.signer!);
                           setTxStatus("Processing expiry...");
@@ -396,7 +397,7 @@ export function Special({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                 {isOpen && (
                   <div style={{ borderTop: "1px solid var(--border)", padding: "1rem 1.75rem" }}>
                     <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                      {ft.state === 1 && (
+                      {ft.state === 2 && ( // PRE_CONTRACT_PROPOSED
                         <button onClick={() => swapAction(async () => {
                           const e = new ethers.Contract(CONTRACTS.FreeTransferEscrow, FREE_TRANSFER_ESCROW_ABI, wallet.signer!);
                           setTxStatus("Withdrawing proposal...");
@@ -404,7 +405,7 @@ export function Special({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           setTxStatus("Proposal withdrawn.");
                         })} style={btn("var(--red)")}>WITHDRAW PROPOSAL</button>
                       )}
-                      {ft.state === 2 && (
+                      {ft.state === 3 && ( // PRE_CONTRACT_SIGNED
                         <button onClick={() => swapAction(async () => {
                           const e = new ethers.Contract(CONTRACTS.FreeTransferEscrow, FREE_TRANSFER_ESCROW_ABI, wallet.signer!);
                           setTxStatus("Locking deposit...");

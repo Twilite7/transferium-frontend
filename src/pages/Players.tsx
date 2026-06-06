@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { waitForTx } from "../utils/waitForTx";
 import { parseError } from "../utils/parseError";
 import { ethers } from "ethers";
@@ -6,7 +6,6 @@ import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
 import { PLAYER_REGISTRY_ABI } from "../config/abis";
 import { RegistrarPanel } from "../components/RegistrarPanel";
-import { uploadPortrait } from "../utils/pinata";
 import { ipfsUrl } from "../config/contracts";
 
 interface Player {
@@ -62,7 +61,6 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [error, setError]               = useState<string | null>(null);
   const [txStatus, setTxStatus]         = useState<string | null>(null);
   const [isRegistrar, setIsRegistrar]   = useState(false);
-  const [isClub, setIsClub]             = useState(false);
   const [listingId, setListingId]       = useState<bigint | null>(null);
   const [listingPrice, setListingPrice] = useState("");
   const [form, setForm] = useState({
@@ -80,9 +78,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     try {
       const registry       = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
       const REGISTRAR_ROLE = await registry.REGISTRAR_ROLE();
-      const CLUB_ROLE       = await registry.CLUB_ROLE();
       setIsRegistrar(await registry.hasRole(REGISTRAR_ROLE, wallet.address));
-      setIsClub(await registry.hasRole(CLUB_ROLE, wallet.address));
     } catch {}
   }
 
@@ -133,67 +129,13 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     }
   }
 
-  async function handlePortraitUpload(playerId: bigint, file: File) {
-    if (!wallet.signer) return;
-    setTxStatus(`Uploading portrait for #${playerId}...`);
-    try {
-      const cid      = await uploadPortrait(file);
-      setTxStatus(`Pinned to IPFS. Saving on-chain...`);
-      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      await waitForTx(await registry.setPortrait(playerId, cid), wallet.provider!);
-      setTxStatus(`Portrait updated for #${playerId}.`);
-      await loadPlayers();
-    } catch (err: any) {
-      setTxStatus(parseError(err));
-    }
-  }
-
+  // I redirect registration to Club.tsx — Players is a read-only registrar/global view
   async function registerPlayer() {
-    if (!wallet.signer) { setTxStatus("Wallet not connected."); return; }
-    console.log("registerPlayer called, signer:", wallet.signer, "address:", wallet.address);
-    setTxStatus(null);
-    setTimeout(() => setTxStatus("Submitting..."), 50);
-    try {
-      console.log("inside try block");
-      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      const expiry   = Math.floor(new Date(form.contractExpiry).getTime() / 1000) + 86400;
-      const salary   = form.weeklySalary ? ethers.parseUnits(form.weeklySalary, 6) : 0n;
-      // I pass portraitCID as empty string — club can update via setPortrait after registration
-      const regFee   = await registry.registrationFee();
-      console.log("registerPlayer args:", { name: form.name, position: form.position, nationality: form.nationality, expiry, salary: salary.toString(), fifaId: form.fifaId, regFee: regFee.toString() });
-      const fifaIdBytes = form.fifaId?.trim()
-        ? ethers.keccak256(ethers.toUtf8Bytes(form.fifaId.trim()))
-        : ethers.ZeroHash;
-      const tx       = await registry.registerPlayer(
-        form.name, form.position, form.nationality, expiry, salary, "", fifaIdBytes, { value: regFee }
-      );
-      setTxStatus("Waiting for confirmation...");
-      await waitForTx(tx, wallet.provider!);
-      setTxStatus("Player registered.");
-      setForm({ name: "", position: "", nationality: "", contractExpiry: "", weeklySalary: "", fifaId: "" });
-      await loadPlayers();
-    } catch (err: any) {
-      console.error("registerPlayer error:", err);
-      const msg = err?.reason ?? err?.data?.message ?? err?.message ?? JSON.stringify(err);
-      setTxStatus("Error: " + msg);
-    }
+    setTxStatus("Use the Club panel to register players.");
   }
 
-  async function listPlayer(playerId: bigint) {
-    if (!wallet.signer || !listingPrice) return;
-    setTxStatus(`Listing #${playerId}...`);
-    try {
-      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      const fee        = await registry.listingFee();
-      const priceUnits = ethers.parseUnits(listingPrice, 6);
-      await waitForTx(await registry.listPlayer(playerId, priceUnits, { value: fee }), wallet.provider!);
-      setTxStatus(`Player #${playerId} listed.`);
-      setListingId(null);
-      setListingPrice("");
-      await loadPlayers();
-    } catch (err: any) {
-      setTxStatus(parseError(err));
-    }
+  async function listPlayer(_playerId: bigint) {
+    setTxStatus("Use the Club panel to list players.");
   }
 
   async function delistPlayer(playerId: bigint) {
@@ -213,10 +155,12 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     wallet.address ? p._owner?.toLowerCase() === wallet.address.toLowerCase() : false;
 
   const statusLabel = (p: Player) => {
-    if (p.isListed)         return { label: "LISTED",    color: "var(--gold)",           border: "var(--gold-dim)"      };
-    if (p.medicalClearance) return { label: "CLEARED",   color: "var(--green)",          border: "var(--green)"         };
-    if (p.isVerified)       return { label: "VERIFIED",  color: "var(--text-secondary)", border: "var(--border-accent)" };
-    return                         { label: "PENDING",   color: "var(--text-dim)",       border: "var(--border)"        };
+    if (p.isListed)           return { label: "LISTED",               color: "var(--gold)",           border: "var(--gold-dim)"      };
+    if (p.verificationActive) return { label: "VERIFICATION PENDING", color: "var(--amber)",          border: "var(--amber)"         };
+    if (p.isVerified && p.medicalClearance && p.medicalVerified)
+                              return { label: "FULLY CLEARED",        color: "var(--green)",          border: "var(--green)"         };
+    if (p.isVerified)         return { label: "VERIFIED",             color: "var(--text-secondary)", border: "var(--border-accent)" };
+    return                           { label: "PENDING",              color: "var(--text-dim)",       border: "var(--border)"        };
   };
 
   return (
@@ -501,7 +445,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                 const isLast     = i === players.length - 1;
                 const showBorder = !isLast || isRegistrar;
                 return (
-                  <React.Fragment key={p.id?.toString() ?? String(i)}>
+                  <Fragment key={p.id?.toString() ?? String(i)}>
                     <tr style={{ borderBottom: showBorder ? "1px solid var(--border)" : "none" }}>
                       <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-dim)" }}>#{p.id?.toString() ?? "?"}</td>
                       <td style={{ padding: "1rem 1.25rem", fontFamily: "var(--font-body)", fontSize: "0.85rem" }}>{p.name}</td>
@@ -542,23 +486,14 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           {isMyPlayer(p) && p.isListed && (
                             <button onClick={() => delistPlayer(p.id)} style={btn("var(--red)")}>DELIST</button>
                           )}
-                          {isMyPlayer(p) && (
-                            <label title="Upload portrait to IPFS" style={{ cursor: "pointer" }}>
-                              {p.portraitCID ? (
-                                <img src={ipfsUrl(p.portraitCID)} alt={p.name}
-                                  style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border-accent)" }} />
-                              ) : (
-                                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", border: "1px dashed var(--border)", padding: "3px 6px", borderRadius: "var(--radius-sm)" }}>PHOTO</span>
-                              )}
-                              <input type="file" accept="image/*" style={{ display: "none" }}
-                                onChange={e => { const f = e.target.files?.[0]; if (f) handlePortraitUpload(p.id, f); e.target.value = ""; }}
-                              />
-                            </label>
-                          )}
+                          {p.portraitCID ? (
+                            <img src={ipfsUrl(p.portraitCID)} alt={p.name}
+                              style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border-accent)" }} />
+                          ) : null}
                         </div>
                       </td>
                     </tr>
-                    {(isRegistrar || isClub) && (
+                    {isRegistrar && (
                       <tr key={`reg-${p.id?.toString() ?? String(i)}`} style={{ borderBottom: isLast ? "none" : "1px solid var(--border)" }}>
                         <td colSpan={8} style={{ padding: "0 1.25rem 1rem" }}>
                           <RegistrarPanel
@@ -571,7 +506,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                         </td>
                       </tr>
                     )}
-                  </React.Fragment>
+                  </Fragment>
                 );
               })}
             </tbody>

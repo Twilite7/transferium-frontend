@@ -5,6 +5,7 @@ import { PLAYER_REGISTRY_ABI } from "./config/abis";
 import { useWallet } from "./hooks/useWallet";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Dashboard } from "./pages/Dashboard";
+import { Players }   from "./pages/Players";
 import { Club }     from "./pages/Club";
 import { Transfers } from "./pages/Transfers";
 import { Loans }     from "./pages/Loans";
@@ -14,7 +15,7 @@ import { Deals }       from "./pages/Deals";
 import { Special }     from "./pages/Special";
 import "./index.css";
 
-type Page = "dashboard" | "players" | "transfers" | "deals" | "loans" | "special" | "league" | "portal";
+type Page = "dashboard" | "club" | "players" | "transfers" | "deals" | "loans" | "special" | "admin" | "portal";
 
 export default function App() {
   const [page, setPage] = useState<Page>("dashboard");
@@ -24,14 +25,15 @@ export default function App() {
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <Nav page={page} setPage={setPage} wallet={wallet} />
       <main style={{ flex: 1, padding: "2rem", maxWidth: "1400px", margin: "0 auto", width: "100%" }}>
-        {page === "dashboard"  && <Dashboard wallet={wallet} />}
-        {page === "players"    && <Club       wallet={wallet} />}
-        {page === "transfers"  && <Transfers wallet={wallet} />}
-        {page === "loans"      && <Loans     wallet={wallet} />}
-        {page === "deals"      && <Deals     wallet={wallet} />}
-        {page === "special"    && <Special   wallet={wallet} />}
-        {page === "league"    && <League    wallet={wallet} />}
-        {page === "portal"    && <PlayerPortal wallet={wallet} />}
+        {page === "dashboard"  && <Dashboard   wallet={wallet} />}
+        {page === "club"       && <Club         wallet={wallet} />}
+        {page === "players"    && <Players      wallet={wallet} />}
+        {page === "transfers"  && <Transfers    wallet={wallet} />}
+        {page === "loans"      && <Loans        wallet={wallet} />}
+        {page === "deals"      && <Deals        wallet={wallet} />}
+        {page === "special"    && <Special      wallet={wallet} />}
+        {page === "admin"      && <League       wallet={wallet} />}
+        {page === "portal"     && <PlayerPortal wallet={wallet} />}
       </main>
       <Footer />
     </div>
@@ -40,6 +42,7 @@ export default function App() {
 
 function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void; wallet: ReturnType<typeof useWallet> }) {
   const [isRegistrar, setIsRegistrar] = useState(false);
+  const [isAdmin, setIsAdmin]         = useState(false);
 
   useEffect(() => {
     if (!wallet.provider || !wallet.address) { setIsRegistrar(false); return; }
@@ -47,20 +50,22 @@ function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void
       try {
         const registry       = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider!);
         const REGISTRAR_ROLE = await registry.REGISTRAR_ROLE();
+        const ADMIN_ROLE     = await registry.ADMIN_ROLE();
         setIsRegistrar(await registry.hasRole(REGISTRAR_ROLE, wallet.address));
+        setIsAdmin(await registry.hasRole(ADMIN_ROLE, wallet.address));
       } catch {}
     })();
   }, [wallet.provider, wallet.address]);
 
   const navItems: { key: Page; label: string }[] = [
-    { key: "dashboard", label: "Overview"  },
-    { key: "players",   label: "Club"      },
-    { key: "transfers", label: "Transfers" },
-    { key: "deals",     label: "Deals"     },
-    { key: "loans",     label: "Loans"     },
-    { key: "special",   label: "Special"   },
-    { key: "portal",    label: "Player"    },
-    ...(isRegistrar ? [{ key: "league" as Page, label: "League" }] : []),
+    { key: "dashboard",  label: "Overview"  },
+    { key: "club",       label: "Club"       },
+    { key: "transfers",  label: "Transfers"  },
+    { key: "loans",      label: "Loans"      },
+    { key: "deals",      label: "Deals"      },
+    { key: "portal",     label: "Player"     },
+    ...(isRegistrar ? [{ key: "players" as Page, label: "Registrar" }] : []),
+    ...(isAdmin     ? [{ key: "admin"   as Page, label: "Admin"     }] : []),
   ];
 
   return (

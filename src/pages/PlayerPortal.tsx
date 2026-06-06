@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS, EURC_ADDRESS } from "../config/contracts";
-import { PLAYER_REGISTRY_ABI, DEAL_ESCROW_ABI } from "../config/abis";
+import { PLAYER_REGISTRY_ABI, DEAL_ESCROW_ABI, TERMINATION_MANAGER_ABI } from "../config/abis";
 import { waitForTx } from "../utils/waitForTx";
 import { parseError } from "../utils/parseError";
 
@@ -45,8 +45,6 @@ interface ActiveDeal {
   signingBonusClaimed:   boolean;
   state:                number;
   stateDeadline:        bigint;
-  medicalHash:          string;
-  medicalOutcome:       number;
 }
 
 const btn = (color: string, bg = "transparent", disabled = false) => ({
@@ -62,25 +60,70 @@ const btn = (color: string, bg = "transparent", disabled = false) => ({
   whiteSpace:    "nowrap" as const,
 })
 
-const inputStyle = {
-  background:   "var(--bg-primary)",
-  border:       "1px solid var(--border)",
-  borderRadius: "var(--radius-sm)",
-  color:        "var(--text-primary)",
-  fontFamily:   "var(--font-mono)",
-  fontSize:     "0.8rem",
-  padding:      "8px 12px",
-  outline:      "none",
-  width:        "100%",
+
+// ─── Termination sub-component ────────────────────────────────────────────────
+async function fetchTerminationProposal(playerId: bigint, provider: any) {
+  try {
+    const { ethers } = await import("ethers")
+    const { CONTRACTS } = await import("../config/contracts")
+    const { TERMINATION_MANAGER_ABI } = await import("../config/abis")
+    const tmgr = new ethers.Contract(CONTRACTS.TerminationManager, TERMINATION_MANAGER_ABI, provider)
+    const prop = await tmgr.getProposal(playerId)
+    // state: 0=None, 1=Proposed, 2=Disputed, 3=Executed
+    return { state: Number(prop.state), initiator: Number(prop.initiator), reason: prop.reason }
+  } catch { return null }
 }
 
-const labelStyle = {
-  fontFamily:    "var(--font-mono)",
-  fontSize:      "0.6rem",
-  color:         "var(--text-dim)",
-  letterSpacing: "0.08em",
-  marginBottom:  "0.35rem",
-  display:       "block" as const,
+function TerminationSection({ playerId, onConfirmMutual, onDispute, provider }: {
+  playerId: bigint;
+  onConfirmMutual: (id: bigint) => void;
+  onDispute: (id: bigint) => void;
+  provider: any;
+}) {
+  const [prop, setProp] = useState<{ state: number; initiator: number; reason: string } | null>(null)
+  useEffect(() => {
+    fetchTerminationProposal(playerId, provider).then(setProp)
+  }, [playerId])
+
+  // state 0 = None (no proposal)
+  if (!prop || prop.state === 0 || prop.state === 3) return null
+
+  // initiator 1=Club, 2=Player
+  const isMutual     = prop.initiator === 1 && prop.state === 1 && prop.reason === "Mutual termination"
+  const isUnilateral = prop.state === 1 && !isMutual
+  const isDisputed   = prop.state === 2
+
+  return (
+    <div style={{ background: "rgba(220,38,38,0.04)", border: "1px solid var(--red)44", borderRadius: "var(--radius-sm)", padding: "1rem 1.25rem", marginBottom: "1rem" }}>
+      <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--red)", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
+        ⚠ CONTRACT TERMINATION PROPOSED
+      </p>
+      <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-secondary)", marginBottom: "0.75rem" }}>
+        {isMutual
+          ? "Your club has proposed mutual termination. Confirming will end your contract."
+          : isDisputed
+          ? "This termination is under league review."
+          : `Unilateral termination proposed. Reason: ${prop.reason || "—"}`}
+      </p>
+      <div style={{ display: "flex", gap: "0.75rem" }}>
+        {isMutual && (
+          <button onClick={() => onConfirmMutual(playerId)} style={btn("var(--red)", "rgba(220,38,38,0.1)")}>
+            CONFIRM TERMINATION
+          </button>
+        )}
+        {isUnilateral && prop.initiator === 1 && (
+          <button onClick={() => onDispute(playerId)} style={btn("var(--gold)", "rgba(201,168,76,0.08)")}>
+            DISPUTE — {7} DAYS TO RESPOND
+          </button>
+        )}
+        {isDisputed && (
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)" }}>
+            Awaiting league decision
+          </span>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
@@ -88,9 +131,6 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
   const [activeDeals, setActiveDeals] = useState<ActiveDeal[]>([])
   const [loading, setLoading]       = useState(false)
   const [txStatus, setTxStatus]     = useState<string | null>(null)
-  const [medicalHash, setMedicalHash] = useState("")
-  const [medicalOutcome, setMedicalOutcome] = useState<number>(1) // 1=PASSED
-  const [submittingMedical, setSubmittingMedical] = useState<bigint | null>(null)
 
   useEffect(() => {
     if (!wallet.provider || !wallet.address) return
@@ -140,8 +180,6 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
             signingBonusClaimed:   d.signingBonusClaimed ?? false,
             state,
             stateDeadline:         d.stateDeadline,
-            medicalHash:           d.medicalHash,
-            medicalOutcome:        Number(d.medicalOutcome),
           })
         } catch {}
       }
@@ -179,29 +217,6 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
     }
   }
 
-  async function submitMedical(dealId: bigint) {
-    if (!wallet.signer || !medicalHash) return
-    setTxStatus("Submitting medical result...")
-    try {
-      const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer)
-      // I hash the document reference string to produce a bytes32
-      const hashBytes = medicalHash.startsWith("0x") && medicalHash.length === 66
-        ? medicalHash
-        : ethers.id(medicalHash)
-      await waitForTx(
-        await dealEscrow.submitMedical(dealId, medicalOutcome, hashBytes),
-        wallet.provider!
-      )
-      const labels = ["", "PASSED", "FAILED", "CONCERN"]
-      setTxStatus(`Medical submitted: ${labels[medicalOutcome]}.`)
-      setMedicalHash("")
-      setSubmittingMedical(null)
-      await loadPortal()
-    } catch (err: any) {
-      setTxStatus(parseError(err))
-    }
-  }
-
   async function claimSigningBonus(dealId: bigint) {
     if (!wallet.signer) return
     setTxStatus("Claiming signing bonus...")
@@ -209,6 +224,32 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
       const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer)
       await waitForTx(await dealEscrow.claimSigningBonus(dealId), wallet.provider!)
       setTxStatus("Salary guarantee claimed.")
+      await loadPortal()
+    } catch (err: any) {
+      setTxStatus(parseError(err))
+    }
+  }
+
+  async function confirmMutualTermination(playerId: bigint) {
+    if (!wallet.signer) return
+    setTxStatus("Confirming mutual termination...")
+    try {
+      const tmgr = new ethers.Contract(CONTRACTS.TerminationManager, TERMINATION_MANAGER_ABI, wallet.signer)
+      await waitForTx(await tmgr.confirmMutualTermination(playerId), wallet.provider!)
+      setTxStatus("Mutual termination confirmed. Contract ended.")
+      await loadPortal()
+    } catch (err: any) {
+      setTxStatus(parseError(err))
+    }
+  }
+
+  async function disputeTermination(playerId: bigint) {
+    if (!wallet.signer) return
+    setTxStatus("Raising dispute against termination...")
+    try {
+      const tmgr = new ethers.Contract(CONTRACTS.TerminationManager, TERMINATION_MANAGER_ABI, wallet.signer)
+      await waitForTx(await tmgr.disputeTermination(playerId), wallet.provider!)
+      setTxStatus("Dispute raised. League will arbitrate within 7 days.")
       await loadPortal()
     } catch (err: any) {
       setTxStatus(parseError(err))
@@ -240,7 +281,7 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
       <div style={{ marginBottom: "2.5rem" }}>
         <h1 style={{ fontSize: "3.5rem", color: "var(--gold)", marginBottom: "0.5rem" }}>PLAYER PORTAL</h1>
         <p style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>
-          Consent to transfers, submit medicals, claim signing bonuss
+          Consent to transfers, claim signing bonuses, manage contract termination
         </p>
       </div>
 
@@ -285,7 +326,6 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
             const dl = deadline(deal.stateDeadline)
             const expired = isExpired(deal.stateDeadline)
             const needsConsent = deal.state === 5 || deal.state === 10
-            const needsMedical = (deal.state === 6 || deal.state === 11) && deal.medicalHash === ("0x" + "0".repeat(64))
             const canClaim = deal.state === 16 && deal.signingBonusAmount > 0n && !deal.signingBonusClaimed
             const showWithdraw = deal.state === 16 || deal.state === 17
 
@@ -344,56 +384,14 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
                   </div>
                 )}
 
-                {/* ── MEDICAL ACTIONS ───────────────────────────────────── */}
-                {needsMedical && (
-                  <div style={{ background: "rgba(59,130,246,0.06)", border: "1px solid #3b82f644", borderRadius: "var(--radius-sm)", padding: "1rem 1.25rem", marginBottom: "1rem" }}>
-                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "#60a5fa", marginBottom: "0.75rem", letterSpacing: "0.06em" }}>
-                      🏥 MEDICAL RESULT REQUIRED
-                    </p>
-                    {submittingMedical === deal.dealId ? (
-                      <div>
-                        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "1rem", marginBottom: "0.75rem" }}>
-                          <div>
-                            <label style={labelStyle}>DOCUMENT REFERENCE OR HASH</label>
-                            <input
-                              type="text"
-                              placeholder="e.g. MED-2024-001 or 0x..."
-                              value={medicalHash}
-                              onChange={e => setMedicalHash(e.target.value)}
-                              style={inputStyle}
-                            />
-                            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginTop: "0.35rem" }}>
-                              A reference string will be hashed on-chain. Pass a 0x bytes32 to use a raw hash.
-                            </p>
-                          </div>
-                          <div>
-                            <label style={labelStyle}>OUTCOME</label>
-                            <select
-                              value={medicalOutcome}
-                              onChange={e => setMedicalOutcome(parseInt(e.target.value))}
-                              style={{ ...inputStyle, cursor: "pointer" }}
-                            >
-                              <option value={1}>PASSED</option>
-                              <option value={3}>CONCERN</option>
-                              <option value={2}>FAILED</option>
-                            </select>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: "0.75rem" }}>
-                          <button onClick={() => submitMedical(deal.dealId)} disabled={!medicalHash} style={btn("var(--green)", medicalHash ? "rgba(45,206,137,0.1)" : "transparent", !medicalHash)}>
-                            SUBMIT MEDICAL
-                          </button>
-                          <button onClick={() => { setSubmittingMedical(null); setMedicalHash("") }} style={btn("var(--text-dim)")}>
-                            CANCEL
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button onClick={() => setSubmittingMedical(deal.dealId)} style={btn("#60a5fa", "rgba(59,130,246,0.1)")}>
-                        ENTER MEDICAL RESULT
-                      </button>
-                    )}
-                  </div>
+                {/* ── TERMINATION ACTIONS ─────────────────────────────── */}
+                {myPlayers.some(mp => mp.id === deal.playerId) && (
+                  <TerminationSection
+                    playerId={deal.playerId}
+                    onConfirmMutual={confirmMutualTermination}
+                    onDispute={disputeTermination}
+                    provider={wallet.provider!}
+                  />
                 )}
 
                 {/* ── SALARY GUARANTEE CLAIM ────────────────────────────── */}
