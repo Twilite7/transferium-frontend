@@ -1,3 +1,4 @@
+// cache-bust: 20260606222207
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { CONTRACTS } from "./config/contracts";
@@ -17,9 +18,35 @@ import "./index.css";
 
 type Page = "dashboard" | "club" | "players" | "transfers" | "deals" | "loans" | "special" | "admin" | "portal";
 
+// I read and write the active page from window.location.hash so that a browser
+// refresh or a shared link lands on the correct page instead of always resetting
+// to the dashboard.
+function getPageFromHash(): Page {
+  const valid: Page[] = [
+    "dashboard", "club", "players", "transfers",
+    "deals", "loans", "special", "admin", "portal",
+  ];
+  const hash = window.location.hash.replace("#", "") as Page;
+  return valid.includes(hash) ? hash : "dashboard";
+}
+
 export default function App() {
-  const [page, setPage] = useState<Page>("dashboard");
+  const [page, setPage] = useState<Page>(getPageFromHash);
   const wallet = useWallet();
+
+  // I keep the hash in sync whenever the page changes
+  useEffect(() => {
+    window.location.hash = page;
+  }, [page]);
+
+  // I handle browser back/forward navigation
+  useEffect(() => {
+    function onHashChange() {
+      setPage(getPageFromHash());
+    }
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
