@@ -16,7 +16,7 @@ export const CONTRACTS = {
   FreeTransferEscrow:  '0x82E3eBA9A029dA2BAbA23eda1cF54eBbAb7dC716',
   InstallmentEscrow:   '0x7b030198c500Ed573C884FFac9573B7502412884',
   AddressRegistry:     '0x39840bc67220BE5bD54aC487668fba6e341dAD90',
-  VerificationManager: '0x979F9E297FAE9e4F2dDf4f091Fadbc1E1491f918',
+  VerificationManager: '0x0ad1c42A82502157C05C68c2673dCaab00Df5EeC',
   TerminationManager:  '0xDe22463F3C64b9681Fd5Bf18d62235E8529737a7',
   eurcAddress:         '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',
   usdcAddress:         '0x3600000000000000000000000000000000000000',

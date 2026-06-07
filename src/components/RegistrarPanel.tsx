@@ -34,6 +34,7 @@ const ZERO_BYTES32 = "0x" + "0".repeat(64);
 export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDocumentHash, onRefresh }: Props) {
   const [status, setStatus]         = useState<string | null>(null);
   const [expanded, setExpanded]     = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   const [playerInfo, setPlayerInfo] = useState<{
     name: string; position: string; nationality: string;
     contractExpiry: bigint; weeklySalary: bigint; club: string; clubName: string;
@@ -102,10 +103,14 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
   }
 
   async function rejectVerification() {
+    const reason = rejectionReason.trim();
+    if (!reason) { setStatus("A rejection reason is required — the club needs to know what to fix."); return; }
+    if (reason.length > 512) { setStatus("Rejection reason must be 512 characters or fewer."); return; }
     setStatus("Rejecting verification...");
     try {
-      await waitForTx(await getVmgr().rejectVerification(playerId), wallet.provider!);
+      await waitForTx(await getVmgr().rejectVerification(playerId, reason), wallet.provider!);
       setStatus("Verification rejected. Fee retained by registrar and protocol.");
+      setRejectionReason("");
       setExpanded(null); await onRefresh(); await fetchPlayerInfo();
     } catch (err: any) { setStatus(parseError(err)); }
   }
@@ -274,8 +279,10 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
                     style={btn("var(--green)", "rgba(45,206,137,0.08)", !hasActiveRequest || !medDone || !legalDone)}>
                     APPROVE &amp; VERIFY PLAYER
                   </button>
-                  <button onClick={rejectVerification} disabled={!hasActiveRequest}
-                    style={btn("var(--red)", "transparent", !hasActiveRequest)}>
+                  <button
+                    onClick={() => setExpanded((expanded as string | null) === "reject" ? "verify" : "reject")}
+                    disabled={!hasActiveRequest}
+                    style={btn("var(--red)", (expanded as string | null) === "reject" ? "rgba(239,68,68,0.08)" : "transparent", !hasActiveRequest)}>
                     REJECT VERIFICATION
                   </button>
                 </div>
@@ -283,6 +290,51 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
                   <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--amber)", marginTop: "0.35rem" }}>
                     Complete medical and legal verification steps first.
                   </p>
+                )}
+                {(expanded as string | null) === "reject" && (
+                  <div style={{ marginTop: "0.75rem", borderTop: "1px solid var(--border)", paddingTop: "0.75rem" }}>
+                    <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--red)", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
+                      REJECTION REASON — required, stored on-chain in the event log
+                    </p>
+                    <textarea
+                      rows={3}
+                      maxLength={512}
+                      placeholder="e.g. Medical document hash does not match the submitted report. FIFA TMS reference could not be verified."
+                      value={rejectionReason}
+                      onChange={e => setRejectionReason(e.target.value)}
+                      style={{
+                        background:   "var(--bg-primary)",
+                        border:       `1px solid ${rejectionReason.trim() ? "var(--border)" : "var(--red)"}`,
+                        borderRadius: "var(--radius-sm)",
+                        color:        "var(--text-primary)",
+                        fontFamily:   "var(--font-mono)",
+                        fontSize:     "0.75rem",
+                        padding:      "7px 10px",
+                        outline:      "none",
+                        width:        "100%",
+                        resize:       "vertical" as const,
+                        lineHeight:   "1.5",
+                        marginBottom: "0.5rem",
+                        boxSizing:    "border-box" as const,
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                      <button
+                        onClick={rejectVerification}
+                        disabled={!rejectionReason.trim()}
+                        style={btn("var(--red)", "rgba(239,68,68,0.08)", !rejectionReason.trim())}>
+                        CONFIRM REJECTION
+                      </button>
+                      <button
+                        onClick={() => { setExpanded("verify"); setRejectionReason(""); }}
+                        style={btn("var(--text-dim)")}>
+                        CANCEL
+                      </button>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginLeft: "auto" }}>
+                        {rejectionReason.length}/512
+                      </span>
+                    </div>
+                  </div>
                 )}
               </>
             )}

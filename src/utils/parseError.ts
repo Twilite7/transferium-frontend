@@ -185,6 +185,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   "RegistryPaused":                   "The registry is currently paused. Try again later.",
   "PlayerAlreadyVerified":            "This player is already verified.",
   "NoActiveVerificationRequest":      "No active verification request found for this player.",
+  "InvalidRejectionReason": "Rejection reason must be 1–512 characters.",
   "VerificationDeadlineNotPassed":    "The 72-hour verification window has not yet elapsed.",
   "MedicalNotSubmitted":              "Medical clearance has not been submitted yet.",
   "MedicalAlreadyVerifiedInRequest":  "Medical clearance has already been verified in this request.",
