@@ -245,6 +245,187 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
           </div>
         </div>
       ) : null}
+
+      {/* ── About Transferium ─────────────────────────────────────────────── */}
+      <div style={{ marginTop: "3rem" }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: "2rem" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "2.5rem", color: "var(--gold)", marginBottom: "0.5rem", letterSpacing: "0.04em" }}>
+            ABOUT TRANSFERIUM
+          </h2>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: "1.7", maxWidth: "780px" }}>
+            Transferium is an open, on-chain protocol that replicates the real-world FIFA football player transfer
+            system — from initial offer and multi-party negotiation through medical clearance, legal document
+            verification, escrow funding and final settlement — without any central authority or intermediary.
+          </p>
+        </div>
+
+        {/* What it is / How it works */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.75rem 2rem" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--gold)", letterSpacing: "0.12em", marginBottom: "1rem" }}>WHAT IT IS</p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.75rem" }}>
+              {[
+                ["Player NFTs", "Every registered player is minted as an ERC-721 token. Ownership tracks the current club on-chain, not in a database."],
+                ["Escrow-first transfers", "Transfer fees, salary guarantees, agent commissions and sell-on clauses are locked in smart contract escrow before any player movement is approved."],
+                ["Multi-stage verification", "Clubs submit medical and legal document hashes. A licensed registrar independently verifies each hash off-chain and signs the approval on-chain."],
+                ["Loan & swap markets", "Clubs can negotiate temporary loans with recall rights and optional purchase clauses, or propose player-for-player swaps — all enforced by contract."],
+                ["Dispute resolution", "A 48-hour dispute window and league-level arbitration are built into every transfer. No single party can unilaterally exit a funded deal."],
+              ].map(([title, desc]) => (
+                <div key={title}>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-primary)", marginBottom: "0.2rem" }}>{title}</p>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)", lineHeight: "1.6" }}>{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.75rem 2rem" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--gold)", letterSpacing: "0.12em", marginBottom: "1rem" }}>HOW A TRANSFER WORKS</p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.6rem" }}>
+              {[
+                ["01", "Club registers player — pays EURC registration fee, submits FIFA ID hash."],
+                ["02", "Club submits medical clearance hash and legal document hashes (registration contract, FIFA TMS reference, work permit)."],
+                ["03", "Club requests registrar verification and pays the verification fee. Registrar has 72 hours to act."],
+                ["04", "Registrar verifies documents off-chain, confirms on-chain. Player status becomes VERIFIED."],
+                ["05", "Selling club lists player at an asking price. Buying clubs submit bids via TransferEscrow."],
+                ["06", "Selling club accepts a bid. A Deal is created in DealEscrow. Buying club funds the deal — transfer fee + signing bonus."],
+                ["07", "Both clubs and the player consent. Medical pass triggers the 48-hour dispute window."],
+                ["08", "On expiry with no dispute, DealEscrow settles: fee to selling club, agent cuts split, signing bonus claimable by player, NFT ownership transferred."],
+              ].map(([step, desc]) => (
+                <div key={step} style={{ display: "flex", gap: "1rem", alignItems: "baseline" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--gold)", minWidth: "20px", flexShrink: 0 }}>{step}</span>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)", lineHeight: "1.6" }}>{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* How to interact + How to test */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.75rem 2rem" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--gold)", letterSpacing: "0.12em", marginBottom: "1rem" }}>HOW TO INTERACT</p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.65rem" }}>
+              {[
+                ["Connect your wallet", "Use MetaMask or any WalletConnect-compatible wallet. Switch to the ARC Testnet (Chain ID 5042002)."],
+                ["Get test EURC", "The protocol uses EURC (6 decimals) as its payment token. Request testnet EURC from the deployer or the project faucet."],
+                ["As a club", "The admin registers your wallet as a club and assigns a registrar. You can then register players, manage documents and initiate transfers."],
+                ["As a registrar", "The admin grants you REGISTRAR_ROLE. You verify player documents via the Registrar tab — approve or reject with a mandatory reason."],
+                ["As a player", "Once your club sets your wallet address, connect with that wallet to access the Player tab — view deals, claim signing bonuses and manage your wallet."],
+              ].map(([title, desc]) => (
+                <div key={title}>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-primary)", marginBottom: "0.2rem" }}>{title}</p>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)", lineHeight: "1.6" }}>{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.75rem 2rem" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--gold)", letterSpacing: "0.12em", marginBottom: "1rem" }}>HOW TO TEST</p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.65rem" }}>
+              {[
+                ["Run the test suite", "cd ~/transferium-contracts && npx hardhat test — 118 tests covering all core contract paths, escrow state machines and security invariants."],
+                ["Deploy locally", "npx hardhat node starts a local fork. EURC_ADDRESS=... npx hardhat run scripts/deploy_v3.ts --network localhost deploys the full protocol."],
+                ["Testnet deployment", "All contracts are live on ARC Testnet. The deployed addresses are listed in the contract panel above. No mainnet deployment yet."],
+                ["Fuzz & audit", "The contracts include comprehensive NatSpec and were internally audited for CEI violations, reentrancy, storage gaps and access control. External audits welcome."],
+              ].map(([title, desc]) => (
+                <div key={title}>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-primary)", marginBottom: "0.2rem" }}>{title}</p>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)", lineHeight: "1.6" }}>{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Future possibilities */}
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.75rem 2rem", marginBottom: "1rem" }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--gold)", letterSpacing: "0.12em", marginBottom: "1rem" }}>FUTURE POSSIBILITIES</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+            {[
+              ["Mainnet deployment", "Full production deployment on a low-fee EVM chain with a multisig treasury, professional audits and regulated registrar onboarding."],
+              ["FIFA / league integration", "Official API bridges connecting the on-chain registry to FIFA TMS and national league databases for automated document verification."],
+              ["Player tokenomics", "Performance-linked add-ons and sell-on clauses create a secondary market where player career milestones generate on-chain revenue streams."],
+              ["DAO governance", "Transfer window scheduling, fee parameters and registrar accreditation governed by a token-weighted DAO rather than a single admin key."],
+              ["Cross-league settlement", "Multi-league support with inter-league escrow bridges, enabling seamless international transfers between clubs on different league instances."],
+              ["Fan engagement layer", "Public player NFT metadata and verifiable transfer histories enable fan-facing applications — prediction markets, fantasy leagues, provenance tracking."],
+            ].map(([title, desc]) => (
+              <div key={title} style={{ borderLeft: "2px solid var(--border-accent)", paddingLeft: "1rem" }}>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-primary)", marginBottom: "0.3rem" }}>{title}</p>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", color: "var(--text-dim)", lineHeight: "1.6" }}>{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Contribute + contact */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.75rem 2rem" }}>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--gold)", letterSpacing: "0.12em", marginBottom: "1rem" }}>CONTRIBUTE</p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.65rem" }}>
+              {[
+                ["Smart contracts", "Review the Solidity source, suggest optimisations, write additional test cases or propose new escrow modules for edge-case transfer structures."],
+                ["Frontend", "The React/TypeScript frontend is open for UI improvements, accessibility fixes, mobile responsiveness and new panel components."],
+                ["Security", "Responsible disclosure of vulnerabilities is welcome. Focus areas: reentrancy paths, access control gaps, storage layout collisions and economic attack vectors."],
+                ["Documentation", "Protocol architecture docs, integration guides and NatSpec improvements are all valuable contributions to the project."],
+              ].map(([title, desc]) => (
+                <div key={title}>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-primary)", marginBottom: "0.2rem" }}>{title}</p>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)", lineHeight: "1.6" }}>{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.75rem 2rem", display: "flex", flexDirection: "column" as const, justifyContent: "space-between" }}>
+            <div>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--gold)", letterSpacing: "0.12em", marginBottom: "1rem" }}>BUILT BY</p>
+              <p style={{ fontFamily: "var(--font-display)", fontSize: "2rem", color: "var(--text-primary)", marginBottom: "0.5rem", letterSpacing: "0.04em" }}>
+                Zeno Murphy
+              </p>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-dim)", lineHeight: "1.7", marginBottom: "1.5rem" }}>
+                Independent protocol developer with a focus on real-world asset tokenisation and
+                decentralised sports infrastructure. Transferium is a solo research and engineering
+                project exploring what professional football transfers look like when trust is
+                replaced by cryptographic guarantees.
+              </p>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.5rem" }}>
+              <a
+                href="https://twitter.com/zenomurphy"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display:        "flex",
+                  alignItems:     "center",
+                  gap:            "0.75rem",
+                  fontFamily:     "var(--font-mono)",
+                  fontSize:       "0.75rem",
+                  color:          "var(--text-primary)",
+                  border:         "1px solid var(--border)",
+                  borderRadius:   "var(--radius-sm)",
+                  padding:        "0.6rem 1rem",
+                  textDecoration: "none",
+                  background:     "var(--bg-primary)",
+                  transition:     "border-color 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--gold)")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}
+              >
+                <span style={{ fontSize: "1rem" }}>𝕏</span>
+                <span>@zenomurphy</span>
+              </a>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", marginTop: "0.25rem" }}>
+                Questions, feedback or collaboration proposals — reach out on X.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
