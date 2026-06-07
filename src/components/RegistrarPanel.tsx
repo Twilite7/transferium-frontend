@@ -10,7 +10,8 @@ interface Props {
   wallet:    ReturnType<typeof useWallet>;
   playerId:  bigint;
   player:    { isVerified: boolean; medicalClearance: boolean; medicalVerified: boolean; playerWallet: string; verificationActive: boolean; };
-  legalDocs: { documentsVerified: boolean; registrationContractHash: string; };
+  legalDocs: { documentsVerified: boolean; registrationContractHash: string; fifaTMSHash: string; workPermitHash: string; };
+  medicalDocumentHash: string;
   onRefresh: () => Promise<void>;
 }
 
@@ -30,7 +31,7 @@ const btn = (color: string, bg = "transparent", disabled = false) => ({
 
 const ZERO_BYTES32 = "0x" + "0".repeat(64);
 
-export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh }: Props) {
+export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDocumentHash, onRefresh }: Props) {
   const [status, setStatus]         = useState<string | null>(null);
   const [expanded, setExpanded]     = useState<string | null>(null);
   const [playerInfo, setPlayerInfo] = useState<{
@@ -184,6 +185,22 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
               Fee locked: {ethers.formatUnits(playerInfo!.verificationRequest!.feePaid, 6)} EURC
             </p>
           )}
+          {/* ── Submitted document hashes for off-chain cross-check ── */}
+          <div style={{ marginTop: "0.6rem", display: "grid", gap: "0.3rem" }}>
+            {[
+              { label: "MEDICAL HASH",   value: medicalDocumentHash },
+              { label: "REG CONTRACT",   value: legalDocs.registrationContractHash },
+              { label: "FIFA TMS",       value: legalDocs.fifaTMSHash },
+              { label: "WORK PERMIT",    value: legalDocs.workPermitHash },
+            ]
+            .filter(h => h.value && h.value !== "0x" + "0".repeat(64))
+            .map(h => (
+              <div key={h.label} style={{ display: "flex", gap: "0.75rem", alignItems: "baseline" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", color: "var(--text-dim)", letterSpacing: "0.08em", minWidth: "90px", flexShrink: 0 }}>{h.label}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-secondary)", wordBreak: "break-all" as const }}>{h.value}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

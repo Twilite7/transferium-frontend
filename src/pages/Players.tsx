@@ -27,7 +27,7 @@ interface Player {
   registeredAt:        bigint;
   portraitCID:         string;
   _owner?:             string;
-  _legalDocs?:         { documentsVerified: boolean; registrationContractHash: string; };
+  _legalDocs?:         { documentsVerified: boolean; registrationContractHash: string; fifaTMSHash: string; workPermitHash: string; };
 }
 
 const btn = (color: string, bg = "transparent") => ({
@@ -117,6 +117,8 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             _legalDocs:          {
               documentsVerified:        legalRaw.documentsVerified,
               registrationContractHash: legalRaw.registrationContractHash,
+              fifaTMSHash:              legalRaw.fifaTMSHash,
+              workPermitHash:           legalRaw.workPermitHash,
             },
           });
         } catch {}
@@ -500,7 +502,8 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                             wallet={wallet}
                             playerId={p.id}
                             player={{ isVerified: p.isVerified, medicalClearance: p.medicalClearance, medicalVerified: p.medicalVerified ?? false, playerWallet: p.playerWallet, verificationActive: p.verificationActive ?? false }}
-                            legalDocs={p._legalDocs ?? { documentsVerified: false, registrationContractHash: "0x" + "0".repeat(64) }}
+                            medicalDocumentHash={p.medicalDocumentHash}
+                            legalDocs={p._legalDocs ?? { documentsVerified: false, registrationContractHash: "0x" + "0".repeat(64), fifaTMSHash: "0x" + "0".repeat(64), workPermitHash: "0x" + "0".repeat(64) }}
                             onRefresh={loadPlayers}
                           />
                         </td>
