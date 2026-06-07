@@ -179,9 +179,9 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, onRefresh 
             {requestDeadline && ` — deadline: ${new Date(Number(requestDeadline) * 1000).toLocaleString()}`}
             {deadlineExpired && <span style={{ color: "var(--red)" }}> — EXPIRED</span>}
           </p>
-          {playerInfo?.verificationRequest?.feePaid && playerInfo.verificationRequest.feePaid > 0n && (
+          {(playerInfo?.verificationRequest?.feePaid ?? 0n) > 0n && (
             <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-secondary)", marginTop: "0.25rem" }}>
-              Fee locked: {ethers.formatUnits(playerInfo.verificationRequest.feePaid, 6)} EURC
+              Fee locked: {ethers.formatUnits(playerInfo!.verificationRequest!.feePaid, 6)} EURC
             </p>
           )}
         </div>
