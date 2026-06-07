@@ -35,6 +35,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
   const [status, setStatus]         = useState<string | null>(null);
   const [expanded, setExpanded]     = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [claimableBalance, setClaimableBalance] = useState(0n);
   const [playerInfo, setPlayerInfo] = useState<{
     name: string; position: string; nationality: string;
     contractExpiry: bigint; weeklySalary: bigint; club: string; clubName: string;
@@ -67,6 +68,11 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
         contractExpiry: raw.contractExpiry, weeklySalary: raw.weeklySalary,
         club, clubName, verificationRequest: verReq,
       });
+      // I fetch the registrar's claimable balance from PlayerRegistry
+      try {
+        const bal = await registry.getRegistrarClaimable(wallet.address);
+        setClaimableBalance(bal ?? 0n);
+      } catch { setClaimableBalance(0n); }
     } catch {}
   }
 
@@ -115,6 +121,16 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
     } catch (err: any) { setStatus(parseError(err)); }
   }
 
+  async function withdrawRegistrarFees() {
+    setStatus("Withdrawing registrar fees...");
+    try {
+      if (!wallet.signer) throw new Error("Wallet not connected");
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.withdrawRegistrarFees(), wallet.provider!);
+      setStatus(`Withdrawn ${ethers.formatUnits(claimableBalance, 6)} EURC to your wallet.`);
+      setClaimableBalance(0n);
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
   async function resetPlayerWallet() {
     setStatus("Resetting player wallet...");
     try {
@@ -353,6 +369,21 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
           </div>
         )}
       </div>
+
+      {/* ── Claimable fee balance ── */}
+      {claimableBalance > 0n && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(45,206,137,0.06)", border: "1px solid var(--green)", borderRadius: "var(--radius-sm)", padding: "0.6rem 1rem", marginTop: "0.75rem" }}>
+          <div>
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--green)", letterSpacing: "0.1em", marginBottom: "0.2rem" }}>CLAIMABLE FEES</p>
+            <p style={{ fontFamily: "var(--font-display)", fontSize: "1.25rem", color: "var(--green)" }}>
+              {ethers.formatUnits(claimableBalance, 6)} EURC
+            </p>
+          </div>
+          <button onClick={withdrawRegistrarFees} style={btn("var(--green)", "rgba(45,206,137,0.1)")}>
+            WITHDRAW FEES
+          </button>
+        </div>
+      )}
 
       {status && (
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "0.75rem" }}>
