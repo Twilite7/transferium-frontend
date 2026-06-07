@@ -2338,7 +2338,7 @@
     }
   },
   "immutableReferences": {
-    "1408": [
+    "3035": [
       {
         "length": 32,
         "start": 15435
@@ -2350,5 +2350,5 @@
     ]
   },
   "inputSourceName": "project/contracts/core/DealEscrow.sol",
-  "buildInfoId": "solc-0_8_28-b6428be78c9cfb444decb12763162b8baa209f98"
+  "buildInfoId": "solc-0_8_28-8121fb132570a1ac9681b9c8ce78d1c2f1f70dc4"
 }

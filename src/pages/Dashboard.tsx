@@ -86,7 +86,7 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       const roleGrantedTopic = ethers.id("RoleGranted(bytes32,address,address)");
       const roleRevokedTopic = ethers.id("RoleRevoked(bytes32,address,address)");
       const paddedRole = ethers.zeroPadValue(CLUB_ROLE, 32);
-      const DEPLOY_BLOCK = 45600178;
+      const DEPLOY_BLOCK = 45833738;
       const CHUNK = 9000;
       const toBlock = await publicProvider.getBlockNumber();
       // I paginate in 9000-block chunks to stay within Arc RPC limits
