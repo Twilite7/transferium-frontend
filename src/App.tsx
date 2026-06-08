@@ -5,6 +5,7 @@ import { PLAYER_REGISTRY_ABI } from "./config/abis";
 import { useWallet } from "./hooks/useWallet";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Dashboard } from "./pages/Dashboard";
+import { Testing }   from "./pages/Testing";
 import { Players }   from "./pages/Players";
 import { Club }     from "./pages/Club";
 import { Transfers } from "./pages/Transfers";
@@ -15,7 +16,7 @@ import { Deals }       from "./pages/Deals";
 import { Special }     from "./pages/Special";
 import "./index.css";
 
-type Page = "dashboard" | "club" | "players" | "transfers" | "deals" | "loans" | "special" | "admin" | "portal";
+type Page = "dashboard" | "club" | "players" | "transfers" | "deals" | "loans" | "special" | "admin" | "portal" | "testing";
 
 // I read and write the active page from window.location.hash so that a browser
 // refresh or a shared link lands on the correct page instead of always resetting
@@ -23,7 +24,7 @@ type Page = "dashboard" | "club" | "players" | "transfers" | "deals" | "loans" |
 function getPageFromHash(): Page {
   const valid: Page[] = [
     "dashboard", "club", "players", "transfers",
-    "deals", "loans", "special", "admin", "portal",
+    "deals", "loans", "special", "admin", "portal", "testing",
   ];
   const hash = window.location.hash.replace("#", "") as Page;
   return valid.includes(hash) ? hash : "dashboard";
@@ -60,6 +61,7 @@ export default function App() {
         {page === "special"    && <Special      wallet={wallet} />}
         {page === "admin"      && <League       wallet={wallet} />}
         {page === "portal"     && <PlayerPortal wallet={wallet} />}
+        {page === "testing"    && <Testing />}
       </main>
       <Footer />
     </div>
@@ -131,8 +133,10 @@ function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void
     { key: "portal",    label: "Player"     },
     { key: "players",   label: "Registrar"  },
     { key: "admin",     label: "Admin"      },
+    { key: "testing",   label: "Testing"    },
   ] : [
     { key: "dashboard", label: "Overview" },
+    { key: "testing",   label: "Testing"    },
     ...(isClub      ? [
       { key: "club"      as Page, label: "Club"      },
       { key: "transfers" as Page, label: "Transfers" },
