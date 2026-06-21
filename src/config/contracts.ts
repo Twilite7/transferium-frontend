@@ -7,17 +7,17 @@ import VerificationManagerABI  from './VerificationManager.json'
 import TerminationManagerABI   from './TerminationManager.json'
 
 export const CONTRACTS = {
-  PlayerRegistry:      '0x218b8d89627Ee2bBf56e3Da1717F908f0E07A27e',
-  TransferWindow:      '0x626A7649441fe21bf8298A1Bf153FC299AF98884',
-  TransferEscrow:      '0x4DC7369f7fAEb69ccE048e4D3b59BB8244865cCB',
-  DealEscrow:          '0xe57fFA169A62A3260932cC9Cc26e684766121aF3',
-  LoanEscrow:          '0xC1727db63042dB62C2731cB405E839AdC179F05F',
-  SwapEscrow:          '0xfE57734B3Ecee995Ea79b3855941B91da175800B',
-  FreeTransferEscrow:  '0xe3d4CE8d057BF6e92606b5fdd504f335691b66D5',
-  InstallmentEscrow:   '0x97856D1c99d981A95f737457AAc9d5006DA66EFB',
-  AddressRegistry:     '0x69Ac5c37047e80AdD1905A1f8035f34aD6E0B063',
-  VerificationManager: '0x13B797D6d782F000594145144Ad7d26747F1DFcf',
-  TerminationManager:  '0xe09D0dD466FF3519968b8e537C88881D661f7d68',
+  PlayerRegistry:      '0x2bc403A55Bc895AbaD40F912eE43a01D6Aad8767',
+  TransferWindow:      '0x2239C32005c591d3513B89dC3D94B801C29BB485',
+  TransferEscrow:      '0x1bA3D6557dA3A6a861b2D27596c3c22A75c6c535',
+  DealEscrow:          '0x16FA8AD457C9aA5A65E1b6bfffb21E87740c909C',
+  LoanEscrow:          '0x31D53d055D18c5748D4E5329975677b6bE5B6B52',
+  SwapEscrow:          '0xd6555dcB6F500f933ccF72a2CA470F5516B60BEC',
+  FreeTransferEscrow:  '0xC5A0fb7EA7f62F5891069557a268F44b7FB3307c',
+  InstallmentEscrow:   '0x86A14BFf619CEedF67910fC11aD883150FEC3434',
+  AddressRegistry:     '0xE416d5DC35358B3a9B62A0bE93D82Af1e1B3a238',
+  VerificationManager: '0x558CdD5e95450CD371a17E86FB7338569a7B0b07',
+  TerminationManager:  '0x9C3151a9C3063342f1FA3148d7CCBA863e2fE3C9',
   eurcAddress:         '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',
   usdcAddress:         '0x3600000000000000000000000000000000000000',
 }
