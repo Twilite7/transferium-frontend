@@ -93,11 +93,13 @@ function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void
         setIsRegistrar(isReg);
         setIsAdmin(isAdm);
         setIsClub(isClb);
-        // I detect player wallets by checking if any token is owned by this address
-        // via balanceOf — a non-zero balance means this wallet is a registered player wallet
+        // I detect player wallets via the walletToPlayer reverse mapping —
+        // a non-zero result means this address is the registered player wallet
+        // for that player ID. balanceOf() checked NFT ownership (the club),
+        // not the player wallet stored in the Player struct.
         try {
-          const bal = await registry.balanceOf(wallet.address);
-          setIsPlayer(bal > 0n);
+          const pid = await registry.walletToPlayer(wallet.address);
+          setIsPlayer(pid > 0n);
         } catch { setIsPlayer(false); }
       } catch {}
     })();
@@ -130,7 +132,6 @@ function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void
     { key: "loans",     label: "Loans"      },
     { key: "deals",     label: "Deals"      },
     { key: "special",   label: "Special"    },
-    { key: "portal",    label: "Player"     },
     { key: "players",   label: "Registrar"  },
     { key: "admin",     label: "Admin"      },
     { key: "testing",   label: "Testing"    },
