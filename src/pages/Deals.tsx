@@ -4,6 +4,7 @@ import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
 import { DEAL_ESCROW_ABI, TRANSFER_ESCROW_ABI, INSTALLMENT_ESCROW_ABI } from "../config/abis";
 import { waitForTx } from "../utils/waitForTx";
+import { sendWithMemo } from "../utils/sendWithMemo";
 import { parseError } from "../utils/parseError";
 
 const DEAL_STATES: Record<number, string> = {
@@ -119,7 +120,13 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       setTxStatus("Approving token...");
       await waitForTx(await token.approve(CONTRACTS.DealEscrow, total), wallet.provider!);
       setTxStatus(`Funding deal #${d.id}...`);
-      await waitForTx(await dealEscrow.fundDeal(d.id), wallet.provider!);
+      // Memo-wrapped so this funding event carries a searchable label —
+      // the biggest money-movement step in the protocol.
+      const tx = await sendWithMemo(
+        wallet.signer, CONTRACTS.DealEscrow, dealEscrow.interface,
+        "fundDeal", [d.id], `deal_fund:deal_${d.id}`
+      );
+      await waitForTx(tx, wallet.provider!);
       setTxStatus(`Deal #${d.id} funded.`);
       await load();
     } catch (err: any) { setTxStatus(parseError(err)); }

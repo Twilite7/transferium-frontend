@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { waitForTx } from "../utils/waitForTx";
+import { sendWithMemo } from "../utils/sendWithMemo";
 import { parseError } from "../utils/parseError";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
@@ -307,7 +308,13 @@ export function Club({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
         }
       }
       setTxStatus(`Requesting verification for #${playerId}...`);
-      await waitForTx(await vmgr.requestVerification(playerId), wallet.provider!);
+      // I wrap this call through Arc's Memo contract so the request carries a
+      // searchable label — useful for reconciling verification activity later.
+      const tx = await sendWithMemo(
+        wallet.signer, CONTRACTS.VerificationManager, vmgr.interface,
+        "requestVerification", [playerId], `verification:player_${playerId}`
+      );
+      await waitForTx(tx, wallet.provider!);
       setTxStatus(`Verification requested for #${playerId}. Registrar has 72 hours to act.`);
       setActiveAction(null);
       await loadPlayers();
