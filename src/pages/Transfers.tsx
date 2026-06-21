@@ -258,9 +258,24 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
     setTxStatus("Submitting bid...")
     try {
       const escrow = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.signer)
+      // I compute the timestamp right before submission (not at form-open time) and
+      // use a 10-minute buffer to absorb wallet confirmation delay + block time —
+      // a stale base here causes the contract to revert with InvalidAmount() since
+      // due dates must be strictly in the future relative to block.timestamp at execution.
       const nowSec = Math.floor(Date.now() / 1000)
-      const instAmounts   = installmentRows.map(r => ethers.parseUnits(r.amount || bidForm.transferFee || "0", 6))
-      const instDueDates  = installmentRows.map(r => BigInt(r.dueDate ? Math.floor(new Date(r.dueDate).getTime() / 1000) : nowSec + 300))
+      const SAFETY_BUFFER_SECS = 600
+      const instAmounts  = installmentRows.map(r => ethers.parseUnits(r.amount || bidForm.transferFee || "0", 6))
+      const instDueDates: bigint[] = []
+      let lastDueDate = nowSec + SAFETY_BUFFER_SECS
+      for (const r of installmentRows) {
+        const explicit = r.dueDate ? Math.floor(new Date(r.dueDate).getTime() / 1000) : null
+        // If no explicit date, or the explicit date doesn't clear the previous one
+        // (or the safety buffer for the first row), fall back to strictly increasing
+        // dates spaced 1 day apart from the last valid due date.
+        const dueDate = explicit !== null && explicit > lastDueDate ? explicit : lastDueDate + 86400
+        instDueDates.push(BigInt(dueDate))
+        lastDueDate = dueDate
+      }
       const tx = await escrow.submitBid(
         offerId,
         ethers.parseUnits(bidForm.transferFee, 6),
