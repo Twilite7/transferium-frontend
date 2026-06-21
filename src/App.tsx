@@ -98,7 +98,7 @@ function Nav({ page, setPage, wallet }: { page: Page; setPage: (p: Page) => void
         // for that player ID. balanceOf() checked NFT ownership (the club),
         // not the player wallet stored in the Player struct.
         try {
-          const pid = await registry.walletToPlayer(wallet.address);
+          const pid = await registry.getPlayerByWallet(wallet.address);
           setIsPlayer(pid > 0n);
         } catch { setIsPlayer(false); }
       } catch {}
