@@ -36,8 +36,6 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
   const [expanded, setExpanded]     = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [claimableBalance, setClaimableBalance] = useState(0n);
-  const [currentFee, setCurrentFee]             = useState(0n);
-  const [feeInput, setFeeInput]                 = useState("");
   const [playerInfo, setPlayerInfo] = useState<{
     name: string; position: string; nationality: string;
     contractExpiry: bigint; weeklySalary: bigint; club: string; clubName: string;
@@ -70,15 +68,11 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
         contractExpiry: raw.contractExpiry, weeklySalary: raw.weeklySalary,
         club, clubName, verificationRequest: verReq,
       });
-      // I fetch the registrar's claimable balance and current fee from PlayerRegistry
+      // I fetch the registrar's claimable balance from PlayerRegistry
       try {
-        const [bal, fee] = await Promise.all([
-          registry.getRegistrarClaimable(wallet.address),
-          registry.getRegistrarFee(wallet.address),
-        ]);
+        const bal = await registry.getRegistrarClaimable(wallet.address);
         setClaimableBalance(bal ?? 0n);
-        setCurrentFee(fee ?? 0n);
-      } catch { setClaimableBalance(0n); setCurrentFee(0n); }
+      } catch { setClaimableBalance(0n); }
     } catch {}
   }
 
@@ -127,20 +121,7 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
     } catch (err: any) { setStatus(parseError(err)); }
   }
 
-  async function setVerificationFee() {
-    const parsed = parseFloat(feeInput);
-    if (isNaN(parsed) || parsed < 0) { setStatus("Enter a valid fee amount in EURC."); return; }
-    const feeWei = BigInt(Math.round(parsed * 1_000_000));
-    setStatus("Setting verification fee...");
-    try {
-      if (!wallet.signer) throw new Error("Wallet not connected");
-      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
-      await waitForTx(await registry.setVerificationFee(feeWei), wallet.provider!);
-      setStatus(`Verification fee set to ${parsed.toFixed(6)} EURC.`);
-      setCurrentFee(feeWei);
-      setFeeInput("");
-    } catch (err: any) { setStatus(parseError(err)); }
-  }
+
   async function withdrawRegistrarFees() {
     setStatus("Withdrawing registrar fees...");
     try {
@@ -374,55 +355,6 @@ export function RegistrarPanel({ wallet, playerId, player, legalDocs, medicalDoc
                 )}
               </>
             )}
-          </div>
-        )}
-      </div>
-
-      <div style={sectionStyle("feesettings")}>
-        {sectionHeader("feesettings", "Verification Fee Settings", false)}
-        {(expanded as string | null) === "feesettings" && (
-          <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
-            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)", lineHeight: "1.6", marginBottom: "0.75rem" }}>
-              Set the EURC fee clubs pay when they request player verification. The fee is
-              locked in escrow during the 72-hour window and split between you and the protocol
-              treasury on completion or rejection. A fee of 0 means free verification.
-            </p>
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.5rem" }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)", whiteSpace: "nowrap" as const }}>
-                Current fee:
-              </span>
-              <span style={{ fontFamily: "var(--font-display)", fontSize: "1rem", color: currentFee > 0n ? "var(--gold)" : "var(--text-dim)" }}>
-                {currentFee > 0n ? ethers.formatUnits(currentFee, 6) + " EURC" : "Not set (free)"}
-              </span>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-              <input
-                type="number"
-                min="0"
-                step="0.000001"
-                placeholder="e.g. 5.00"
-                value={feeInput}
-                onChange={e => setFeeInput(e.target.value)}
-                style={{
-                  background:   "var(--bg-primary)",
-                  border:       "1px solid var(--border)",
-                  borderRadius: "var(--radius-sm)",
-                  color:        "var(--text-primary)",
-                  fontFamily:   "var(--font-mono)",
-                  fontSize:     "0.75rem",
-                  padding:      "5px 10px",
-                  outline:      "none",
-                  width:        "140px",
-                }}
-              />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)" }}>EURC</span>
-              <button
-                onClick={setVerificationFee}
-                disabled={!feeInput.trim()}
-                style={btn("var(--gold)", "rgba(201,168,76,0.08)", !feeInput.trim())}>
-                SET FEE
-              </button>
-            </div>
           </div>
         )}
       </div>

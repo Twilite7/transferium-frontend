@@ -61,6 +61,10 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [error, setError]               = useState<string | null>(null);
   const [txStatus, setTxStatus]         = useState<string | null>(null);
   const [isRegistrar, setIsRegistrar]   = useState(false);
+  const [regFeeInput, setRegFeeInput]   = useState("");
+  const [regCurrentFee, setRegCurrentFee] = useState(0n);
+  const [regClaimable, setRegClaimable] = useState(0n);
+  const [regFeeStatus, setRegFeeStatus] = useState<string | null>(null);
   const [listingId, setListingId]       = useState<bigint | null>(null);
   const [listingPrice, setListingPrice] = useState("");
   const [form, setForm] = useState({
@@ -71,6 +75,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     if (!wallet.provider) return;
     loadPlayers();
     checkRoles();
+    loadRegistrarFees();
   }, [wallet.provider, wallet.address]);
 
   async function checkRoles() {
@@ -165,6 +170,45 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     return                           { label: "PENDING",              color: "var(--text-dim)",       border: "var(--border)"        };
   };
 
+  async function loadRegistrarFees() {
+    if (!wallet.provider || !wallet.address) return;
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
+      const [fee, claimable] = await Promise.all([
+        registry.getRegistrarFee(wallet.address),
+        registry.getRegistrarClaimable(wallet.address),
+      ]);
+      setRegCurrentFee(fee ?? 0n);
+      setRegClaimable(claimable ?? 0n);
+    } catch {}
+  }
+
+  async function updateVerificationFee() {
+    if (!wallet.signer) return;
+    const parsed = parseFloat(regFeeInput);
+    if (isNaN(parsed) || parsed < 0) { setRegFeeStatus("Enter a valid fee amount in EURC."); return; }
+    const feeWei = BigInt(Math.round(parsed * 1_000_000));
+    setRegFeeStatus("Setting fee...");
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.setVerificationFee(feeWei), wallet.provider!);
+      setRegCurrentFee(feeWei);
+      setRegFeeInput("");
+      setRegFeeStatus(`Fee set to ${parsed.toFixed(6)} EURC.`);
+    } catch (err: any) { setRegFeeStatus(parseError(err)); }
+  }
+
+  async function withdrawRegistrarFees() {
+    if (!wallet.signer) return;
+    setRegFeeStatus("Withdrawing fees...");
+    try {
+      const registry = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.signer);
+      await waitForTx(await registry.withdrawRegistrarFees(), wallet.provider!);
+      setRegFeeStatus(`Withdrawn ${ethers.formatUnits(regClaimable, 6)} EURC.`);
+      setRegClaimable(0n);
+    } catch (err: any) { setRegFeeStatus(parseError(err)); }
+  }
+
   return (
     <div>
       <div style={{ marginBottom: "2.5rem" }}>
@@ -175,7 +219,62 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       </div>
 
       {wallet.isConnected && (
+        <>
+        {isRegistrar && (
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.5rem 2rem", marginBottom: "2rem" }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "1.25rem" }}>REGISTRAR SETTINGS</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+            {/* Fee setting */}
+            <div>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-secondary)", marginBottom: "0.4rem" }}>VERIFICATION FEE</p>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", lineHeight: "1.6", marginBottom: "0.75rem" }}>
+                Fee clubs pay when requesting verification. Max 2.4 EURC (120% of the 2 EURC base). Split between you and the protocol treasury on completion or rejection.
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.4rem" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)" }}>Current:</span>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "1rem", color: regCurrentFee > 0n ? "var(--gold)" : "var(--text-dim)" }}>
+                  {regCurrentFee > 0n ? ethers.formatUnits(regCurrentFee, 6) + " EURC" : "Not set (free)"}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <input
+                  type="number" min="0" step="0.000001" placeholder="e.g. 2.00"
+                  value={regFeeInput} onChange={e => setRegFeeInput(e.target.value)}
+                  style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-primary)", fontFamily: "var(--font-mono)", fontSize: "0.75rem", padding: "5px 10px", outline: "none", width: "120px" }}
+                />
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-dim)" }}>EURC</span>
+                <button onClick={updateVerificationFee} disabled={!regFeeInput.trim()}
+                  style={btn("var(--gold)", !regFeeInput.trim() ? "transparent" : "rgba(201,168,76,0.08)")}>
+                  SET FEE
+                </button>
+              </div>
+            </div>
+            {/* Claimable fees */}
+            <div>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.68rem", color: "var(--text-secondary)", marginBottom: "0.4rem" }}>CLAIMABLE FEES</p>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", lineHeight: "1.6", marginBottom: "0.75rem" }}>
+                EURC accumulated from completed and rejected verification requests. Withdraw to your wallet at any time.
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", color: regClaimable > 0n ? "var(--green)" : "var(--text-dim)" }}>
+                  {ethers.formatUnits(regClaimable, 6)} EURC
+                </span>
+                {regClaimable > 0n && (
+                  <button onClick={withdrawRegistrarFees}
+                    style={btn("var(--green)", "rgba(45,206,137,0.1)")}>
+                    WITHDRAW
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          {regFeeStatus && (
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "0.75rem" }}>{regFeeStatus}</p>
+          )}
+        </div>
+      )}
+
+      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1.5rem 2rem", marginBottom: "2rem" }}>
           <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "1rem" }}>
             REGISTER NEW PLAYER
           </p>
@@ -421,6 +520,7 @@ export function Players({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             </p>
           )}
         </div>
+        </>
       )}
 
       {loading ? (
