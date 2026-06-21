@@ -67,12 +67,30 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [withdrawToken, setWithdrawToken]       = useState(EURC_ADDRESS);
   const [withdrawAmount, setWithdrawAmount]     = useState("");
   const [feeScheduleInfo, setFeeScheduleInfo]   = useState<{ pending: bigint; effectiveAt: bigint } | null>(null);
+  const [feeBalances, setFeeBalances]           = useState<{ PlayerRegistry: bigint; TransferEscrow: bigint; LoanEscrow: bigint } | null>(null);
+  const [loadingBalances, setLoadingBalances]   = useState(false);
 
   useEffect(() => {
     if (!wallet.provider || !wallet.address) return;
     checkAdmin();
     loadFeeSchedule();
+    loadFeeBalances();
   }, [wallet.provider, wallet.address]);
+
+  async function loadFeeBalances() {
+    if (!wallet.provider) return;
+    setLoadingBalances(true);
+    try {
+      const eurc = new ethers.Contract(withdrawToken || EURC_ADDRESS, ["function balanceOf(address) view returns (uint256)"], wallet.provider);
+      const [pr, te, le] = await Promise.all([
+        eurc.balanceOf(CONTRACTS.PlayerRegistry),
+        eurc.balanceOf(CONTRACTS.TransferEscrow),
+        eurc.balanceOf(CONTRACTS.LoanEscrow),
+      ]);
+      setFeeBalances({ PlayerRegistry: pr, TransferEscrow: te, LoanEscrow: le });
+    } catch { setFeeBalances(null); }
+    finally { setLoadingBalances(false); }
+  }
 
   async function checkAdmin() {
     if (!wallet.provider || !wallet.address) return;
@@ -242,6 +260,7 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const units = ethers.parseUnits(withdrawAmount, 6);
       await waitForTx(await c.withdrawFees(withdrawToken, units), wallet.provider!);
       setStatus(`Withdrawn ${withdrawAmount} EURC from ${contractName}.`);
+      await loadFeeBalances();
       setWithdrawAmount("");
     } catch (err: any) { setStatus(parseError(err)); }
   }
@@ -381,6 +400,34 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", marginBottom: "0.75rem" }}>
           Protocol fees accumulate in each contract separately. Withdraw to the treasury address set in each contract.
         </p>
+        {/* ── Accumulated balance display ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem", marginBottom: "1rem" }}>
+          {([
+            { label: "PLAYERREGISTRY",  key: "PlayerRegistry"  as const },
+            { label: "TRANSFERESCROW",  key: "TransferEscrow"  as const },
+            { label: "LOANESCROW",      key: "LoanEscrow"      as const },
+          ]).map(({ label, key }) => {
+            const bal = feeBalances?.[key];
+            const hasBalance = bal !== undefined && bal > 0n;
+            return (
+              <div key={key} style={{
+                background: hasBalance ? "rgba(201,168,76,0.06)" : "var(--bg-primary)",
+                border: `1px solid ${hasBalance ? "var(--gold-dim)" : "var(--border)"}`,
+                borderRadius: "var(--radius-sm)",
+                padding: "0.75rem 1rem",
+              }}>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "0.35rem" }}>{label}</p>
+                <p style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", color: hasBalance ? "var(--gold)" : "var(--text-dim)" }}>
+                  {loadingBalances ? "..." : bal !== undefined ? ethers.formatUnits(bal, 6) + " EURC" : "—"}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={loadFeeBalances} disabled={loadingBalances}
+          style={{ ...btn("var(--text-dim)", "transparent", loadingBalances), marginBottom: "1rem", fontSize: "0.6rem" }}>
+          {loadingBalances ? "REFRESHING..." : "↻ REFRESH BALANCES"}
+        </button>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginBottom: "1rem" }}>
           <div style={{ flex: 1 }}>
             <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: "0.35rem" }}>TOKEN ADDRESS (EURC)</p>
