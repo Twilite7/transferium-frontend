@@ -61,6 +61,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
   const [txStatus, setTxStatus]               = useState<string | null>(null)
   const [tab, setTab]                         = useState<"market" | "offers" | "league">("market")
   const [isLeague, setIsLeague]               = useState(false)
+  const [isClub, setIsClub]                   = useState(false)
   const [leagueOffers, setLeagueOffers]       = useState<{ offer: Offer; bids: Bid[] }[]>([])
 
   // Offer form
@@ -156,8 +157,13 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       setOfferBids(bidsMap)
       // League queue — all offers with active bids
       const LEAGUE_ROLE = await escrow.LEAGUE_ROLE()
-      const leagueCheck = wallet.address ? await escrow.hasRole(LEAGUE_ROLE, wallet.address) : false
+      const CLUB_ROLE   = await registry.CLUB_ROLE()
+      const [leagueCheck, clubCheck] = await Promise.all([
+        wallet.address ? escrow.hasRole(LEAGUE_ROLE, wallet.address) : Promise.resolve(false),
+        wallet.address ? registry.hasRole(CLUB_ROLE, wallet.address) : Promise.resolve(false),
+      ])
       setIsLeague(leagueCheck)
+      setIsClub(clubCheck)
       if (leagueCheck) {
         const lOffers: { offer: Offer; bids: Bid[] }[] = []
         for (let i = 1; i <= Number(totalOffers); i++) {
@@ -565,7 +571,16 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                   </div>
 
                   <div style={{ display: "flex", gap: "0.75rem" }}>
-                    <button onClick={() => submitBid(selectedOffer.id)} disabled={!bidForm.transferFee} style={{ ...btn("var(--gold)", bidForm.transferFee ? "rgba(201,168,76,0.1)" : "transparent"), padding: "8px 24px", fontSize: "0.75rem" }}>SUBMIT BID</button>
+                    {isClub ? (
+                      <button onClick={() => submitBid(selectedOffer.id)} disabled={!bidForm.transferFee}
+                        style={{ ...btn("var(--gold)", bidForm.transferFee ? "rgba(201,168,76,0.1)" : "transparent"), padding: "8px 24px", fontSize: "0.75rem" }}>
+                        SUBMIT BID
+                      </button>
+                    ) : (
+                      <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)" }}>
+                        Connect a wallet with CLUB_ROLE to submit a bid.
+                      </p>
+                    )}
                     <button onClick={() => setSelectedOffer(null)} style={{ ...btn("var(--text-dim)"), padding: "8px 24px", fontSize: "0.75rem" }}>CANCEL</button>
                   </div>
                 </div>
