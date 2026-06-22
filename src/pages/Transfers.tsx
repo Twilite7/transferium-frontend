@@ -141,9 +141,13 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
             activeNegotiations: o.activeNegotiations, exists: o.exists,
           }
           offers.push(offer)
-          // I load bids for each of my offers
+          // I load bids for each of my offers — getAllBids checks msg.sender
+          // so it must be called via signer, not provider
           try {
-            const bids = await escrow.getAllBids(i)
+            const escrowSigned = wallet.signer
+              ? new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.signer)
+              : escrow
+            const bids = await escrowSigned.getAllBids(i)
             bidsMap[i.toString()] = bids.map((b: any) => ({
               offerId: b.offerId, buyingClub: b.buyingClub,
               transferFee: b.transferFee, signingBonusMonths: b.signingBonusMonths,
