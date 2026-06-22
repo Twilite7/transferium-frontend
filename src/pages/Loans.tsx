@@ -50,6 +50,7 @@ export function Loans({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [loans, setLoans]       = useState<Loan[]>([]);
   const [players, setPlayers]   = useState<Player[]>([]);
   const [isLeague, setIsLeague] = useState(false);
+  const [isClub, setIsClub]     = useState(false);
   const [loading, setLoading]   = useState(false);
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [tab, setTab]           = useState<"all" | "mine">("all");
@@ -69,7 +70,13 @@ export function Loans({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
       const loanEscrow = new ethers.Contract(CONTRACTS.LoanEscrow, LOAN_ESCROW_ABI, wallet.provider);
 
       const LEAGUE_ROLE = await loanEscrow.LEAGUE_ROLE();
-      setIsLeague(wallet.address ? await loanEscrow.hasRole(LEAGUE_ROLE, wallet.address) : false);
+      const CLUB_ROLE   = await registry.CLUB_ROLE();
+      const [leagueCheck, clubCheck] = await Promise.all([
+        wallet.address ? loanEscrow.hasRole(LEAGUE_ROLE, wallet.address) : Promise.resolve(false),
+        wallet.address ? registry.hasRole(CLUB_ROLE, wallet.address)     : Promise.resolve(false),
+      ]);
+      setIsLeague(leagueCheck);
+      setIsClub(clubCheck);
 
       const total = await registry.totalPlayers();
       const pList: Player[] = [];
@@ -245,9 +252,11 @@ export function Loans({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             Loan deals — fee escrow, recall clauses, and option to buy
           </p>
         </div>
-        <button onClick={() => setShowForm(f => !f)} style={{ ...btn("var(--gold)", showForm ? "rgba(201,168,76,0.1)" : "transparent"), padding: "8px 24px", fontSize: "0.75rem" }}>
-          {showForm ? "CANCEL" : "+ CREATE LOAN"}
-        </button>
+        {isClub && (
+          <button onClick={() => setShowForm(f => !f)} style={{ ...btn("var(--gold)", showForm ? "rgba(201,168,76,0.1)" : "transparent"), padding: "8px 24px", fontSize: "0.75rem" }}>
+            {showForm ? "CANCEL" : "+ CREATE LOAN"}
+          </button>
+        )}
       </div>
 
       {/* Create loan form */}

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
-import { DEAL_ESCROW_ABI, TRANSFER_ESCROW_ABI, INSTALLMENT_ESCROW_ABI } from "../config/abis";
+import { DEAL_ESCROW_ABI, TRANSFER_ESCROW_ABI, INSTALLMENT_ESCROW_ABI, PLAYER_REGISTRY_ABI } from "../config/abis";
 import { waitForTx } from "../utils/waitForTx";
 import { sendWithMemo } from "../utils/sendWithMemo";
 import { parseError } from "../utils/parseError";
@@ -56,13 +56,21 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [loading, setLoading] = useState(false);
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [isClub, setIsClub]     = useState(false);
 
   const load = useCallback(async () => {
     if (!wallet.provider || !wallet.address) return;
     setLoading(true);
     try {
       const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.provider);
+      const registry   = new ethers.Contract(CONTRACTS.PlayerRegistry, PLAYER_REGISTRY_ABI, wallet.provider);
       const total      = Number(await dealEscrow.totalDeals());
+      if (wallet.address) {
+        try {
+          const CLUB_ROLE = await registry.CLUB_ROLE();
+          setIsClub(await registry.hasRole(CLUB_ROLE, wallet.address));
+        } catch {}
+      }
       const result: Deal[] = [];
 
       for (let i = 1; i <= total; i++) {
@@ -300,7 +308,7 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                       {/* Actions */}
                       <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
                         {/* Fund */}
-                        {d.state === 13 && isBuyer(d) && (
+                        {d.state === 13 && isBuyer(d) && isClub && (
                           <button onClick={() => fundDeal(d)} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>
                             FUND DEAL
                           </button>
