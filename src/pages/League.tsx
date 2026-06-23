@@ -7,6 +7,7 @@ import {
   TRANSFER_ESCROW_ABI,
   LOAN_ESCROW_ABI,
   TRANSFER_WINDOW_ABI,
+  DEAL_ESCROW_ABI,
 } from "../config/abis";
 import { parseError } from "../utils/parseError";
 import { waitForTx } from "../utils/waitForTx";
@@ -252,6 +253,16 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     } catch (err: any) { setStatus(parseError(err)); }
   }
 
+  async function setDealTimer(which: number, hours: number) {
+    if (!wallet.signer) return;
+    setStatus(`Setting timer ${which} to ${hours}h...`);
+    try {
+      const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer);
+      await waitForTx(await dealEscrow.setTimer(which, BigInt(hours * 3600)), wallet.provider!);
+      setStatus(`Timer ${which} set to ${hours} hour(s).`);
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
   async function withdrawFees(contractName: string, contractAddr: string, abi: any) {
     if (!wallet.signer || !withdrawAmount) return;
     setStatus(`Withdrawing from ${contractName}...`);
@@ -394,6 +405,37 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
           <button onClick={scheduleWindow} disabled={!winLabel || !winOpens || !winCloses} style={btn("var(--green)", "rgba(45,206,137,0.08)", !winLabel || !winOpens || !winCloses)}>SCHEDULE</button>
         </div>
         <button onClick={advanceActiveWindow} style={btn("var(--text-secondary)")}>ADVANCE ACTIVE WINDOW POINTER</button>
+      </Section>
+
+      <Section title="DEAL TIMERS (TESTNET)">
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", marginBottom: "1rem" }}>
+          Override deal state timeouts. On testnet set these low for faster testing. Timer indices: 0=consent, 1=medical, 2=hijack window, 3=renegotiation, 4=medical renegotiation, 5=hijack funding.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
+          {[
+            { which: 0, label: "CONSENT (72h default)" },
+            { which: 1, label: "MEDICAL (72h default)" },
+            { which: 2, label: "HIJACK WINDOW (48h default)" },
+            { which: 3, label: "RENEGOTIATION (72h default)" },
+            { which: 4, label: "MED RENEGOTIATION (72h default)" },
+            { which: 5, label: "HIJACK FUNDING (72h default)" },
+          ].map(({ which, label }) => (
+            <div key={which} style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem" }}>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>TIMER {which} — {label}</p>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button onClick={() => setDealTimer(which, 0.017)} style={btn("var(--red)", "rgba(239,68,68,0.08)")}>
+                  1 MIN
+                </button>
+                <button onClick={() => setDealTimer(which, 1)} style={btn("var(--amber)", "rgba(201,168,76,0.08)")}>
+                  1 HR
+                </button>
+                <button onClick={() => setDealTimer(which, 72)} style={btn("var(--text-dim)")}>
+                  RESET
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section title="WITHDRAW PROTOCOL FEES">
