@@ -253,13 +253,13 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     } catch (err: any) { setStatus(parseError(err)); }
   }
 
-  async function setDealTimer(which: number, hours: number) {
+  async function setDealTimer(which: number, seconds: number) {
     if (!wallet.signer) return;
-    setStatus(`Setting timer ${which} to ${hours}h...`);
+    setStatus(`Setting timer ${which} to ${seconds}s...`);
     try {
       const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer);
-      await waitForTx(await dealEscrow.setTimer(which, BigInt(hours * 3600)), wallet.provider!);
-      setStatus(`Timer ${which} set to ${hours} hour(s).`);
+      await waitForTx(await dealEscrow.setTimer(which, BigInt(seconds)), wallet.provider!);
+      setStatus(`Timer ${which} set to ${seconds} second(s).`);
     } catch (err: any) { setStatus(parseError(err)); }
   }
 
@@ -423,14 +423,14 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             <div key={which} style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem" }}>
               <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>TIMER {which} — {label}</p>
               <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button onClick={() => setDealTimer(which, 0.017)} style={btn("var(--red)", "rgba(239,68,68,0.08)")}>
+                <button onClick={() => setDealTimer(which, 60)} style={btn("var(--red)", "rgba(239,68,68,0.08)")}>
                   1 MIN
                 </button>
-                <button onClick={() => setDealTimer(which, 1)} style={btn("var(--amber)", "rgba(201,168,76,0.08)")}>
+                <button onClick={() => setDealTimer(which, 3600)} style={btn("var(--amber)", "rgba(201,168,76,0.08)")}>
                   1 HR
                 </button>
-                <button onClick={() => setDealTimer(which, 72)} style={btn("var(--text-dim)")}>
-                  RESET
+                <button onClick={() => setDealTimer(which, 259200)} style={btn("var(--text-dim)")}>
+                  RESET (72H)
                 </button>
               </div>
             </div>
