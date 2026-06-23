@@ -57,6 +57,7 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [isClub, setIsClub]     = useState(false);
+  const [medicalHash, setMedicalHash] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     if (!wallet.provider || !wallet.address) return;
@@ -116,6 +117,22 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   }, [wallet.provider, wallet.address]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function submitMedical(d: Deal, outcome: number, hash: string) {
+    if (!wallet.signer) return;
+    if (!hash.trim()) { setTxStatus("Medical document hash is required."); return; }
+    let hashBytes: string;
+    try { hashBytes = hash.trim().startsWith("0x") ? hash.trim() : ethers.id(hash.trim()); }
+    catch { setTxStatus("Invalid hash format."); return; }
+    setTxStatus("Submitting medical pass...");
+    try {
+      const dealEscrow = new ethers.Contract(CONTRACTS.DealEscrow, DEAL_ESCROW_ABI, wallet.signer);
+      await waitForTx(await dealEscrow.submitMedical(d.id, outcome, hashBytes), wallet.provider!);
+      const labels = ["", "PASSED", "FAILED", "CONCERN"];
+      setTxStatus(`Medical submitted — outcome: ${labels[outcome]}.`);
+      await load();
+    } catch (err: any) { setTxStatus(parseError(err)); }
+  }
 
   async function fundDeal(d: Deal) {
     if (!wallet.signer) return;
@@ -312,6 +329,30 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           <button onClick={() => fundDeal(d)} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>
                             FUND DEAL
                           </button>
+                        )}
+                        {/* Submit medical — state 6 = AWAITING_TRANSFER_MEDICAL */}
+                        {d.state === 6 && isBuyer(d) && isClub && (
+                          <div style={{ width: "100%", borderTop: "1px solid var(--border)", paddingTop: "0.75rem", marginTop: "0.25rem" }}>
+                            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>SUBMIT MEDICAL REPORT</p>
+                            <input
+                              type="text"
+                              placeholder="Medical document hash (bytes32 or string)"
+                              value={medicalHash[d.id.toString()] ?? ""}
+                              onChange={e => setMedicalHash(p => ({ ...p, [d.id.toString()]: e.target.value }))}
+                              style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-primary)", fontFamily: "var(--font-mono)", fontSize: "0.7rem", padding: "6px 10px", outline: "none", width: "100%", marginBottom: "0.5rem", boxSizing: "border-box" as const }}
+                            />
+                            <div style={{ display: "flex", gap: "0.5rem" }}>
+                              <button onClick={() => submitMedical(d, 1, medicalHash[d.id.toString()] ?? "")} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>
+                                PASSED
+                              </button>
+                              <button onClick={() => submitMedical(d, 3, medicalHash[d.id.toString()] ?? "")} style={btn("var(--amber)", "rgba(201,168,76,0.08)")}>
+                                CONCERN
+                              </button>
+                              <button onClick={() => submitMedical(d, 2, medicalHash[d.id.toString()] ?? "")} style={btn("var(--red)")}>
+                                FAILED
+                              </button>
+                            </div>
+                          </div>
                         )}
                         {/* Claim salary guarantee */}
                         {d.state === 16 && isBuyer(d) && d.signingBonusAmount > 0n && (
