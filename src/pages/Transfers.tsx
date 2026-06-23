@@ -155,7 +155,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
               buyerAgentBps: b.buyerAgentBps, status: Number(b.status),
               roundNumber: b.roundNumber, isCounterFromSeller: b.isCounterFromSeller,
             }))
-          } catch (e: any) { console.error("getAllBids failed for offer", i, e?.message ?? e) }
+          } catch {}
         } catch {}
       }
       setMyOffers(offers)
