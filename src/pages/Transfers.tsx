@@ -58,6 +58,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
   const [windowOpen, setWindowOpen]           = useState(false)
   const [selectedPlayer, setSelectedPlayer]   = useState<ListedPlayer | null>(null)
   const [selectedOffer, setSelectedOffer]     = useState<Offer | null>(null)
+  const [myBids, setMyBids]                   = useState<Record<string, Bid>>({})
   const [txStatus, setTxStatus]               = useState<string | null>(null)
   const [tab, setTab]                         = useState<"market" | "offers" | "league">("market")
   const [isLeague, setIsLeague]               = useState(false)
@@ -159,6 +160,29 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       }
       setMyOffers(offers)
       setOfferBids(bidsMap)
+      // I fetch my own active bids keyed by playerId for the market tab
+      if (wallet.address) {
+        const bidsForMe: Record<string, Bid> = {}
+        for (let i = 1; i <= Number(totalOffers); i++) {
+          try {
+            const o = await escrow.getOffer(i)
+            if (!o.exists) continue
+            const escrowSigned = wallet.signer
+              ? new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.signer)
+              : escrow
+            const bid = await escrowSigned.getBid(i, wallet.address)
+            if (Number(bid.status) === 1 || Number(bid.status) === 2) {
+              bidsForMe[o.playerId.toString()] = {
+                offerId: BigInt(i), buyingClub: wallet.address,
+                transferFee: bid.transferFee, signingBonusMonths: bid.signingBonusMonths,
+                buyerAgentBps: bid.buyerAgentBps, status: Number(bid.status),
+                roundNumber: bid.roundNumber, isCounterFromSeller: bid.isCounterFromSeller,
+              }
+            }
+          } catch {}
+        }
+        setMyBids(bidsForMe)
+      }
       // League queue — all offers with active bids
       const LEAGUE_ROLE = await escrow.LEAGUE_ROLE()
       const CLUB_ROLE   = await registry.CLUB_ROLE()
@@ -324,6 +348,17 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
     }
   }
 
+  async function withdrawBid(offerId: bigint) {
+    if (!wallet.signer) return
+    setTxStatus("Withdrawing bid...")
+    try {
+      const escrow = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.signer)
+      await (await escrow.withdrawBid(offerId)).wait()
+      setTxStatus("Bid withdrawn.")
+      await loadAll()
+    } catch (err: any) { setTxStatus(parseError(err)) }
+  }
+
   async function rejectBid(offerId: bigint, buyingClub: string) {
     if (!wallet.signer) return
     setTxStatus("Rejecting bid...")
@@ -432,19 +467,19 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                           )}
                           {/* Buying club places bid on existing offer */}
                           {!isOwn && windowOpen && (
-                            <button onClick={() => {
-                              // I find the active offer for this player to attach bid to
-                              // I fetch the offerId on-chain — listedPlayers don't carry it
-                              ;(async () => {
-                                try {
-                                  const esc = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.provider!)
-                                  const offerId: bigint = await esc.getPlayerOffer(p.id)
-                                  if (offerId === 0n) { alert("No active offer found for this player."); return; }
+                            <button onClick={async () => {
+                              try {
+                                const esc = new ethers.Contract(CONTRACTS.TransferEscrow, TRANSFER_ESCROW_ABI, wallet.provider!)
+                                const offerId: bigint = await esc.getPlayerOffer(p.id)
+                                if (offerId === 0n) { alert("No active offer found for this player."); return; }
+                                if (myBids[p.id.toString()]) {
+                                  await withdrawBid(offerId)
+                                } else {
                                   setSelectedOffer({ id: offerId, playerId: p.id, playerName: p.name, sellingClub: p.currentClub, paymentToken: EURC_ADDRESS, askingPrice: p.askingPrice, sellOnBps: 0n, sellerAgentBps: 0n, minimumHijackIncrementBps: 500n, activeNegotiations: 0n, exists: true })
-                                } catch { alert("Failed to load offer. Try again."); }
-                              })()
-                            }} style={btn("var(--text-secondary)")}>
-                              PLACE BID
+                                }
+                              } catch { alert("Failed to load offer. Try again."); }
+                            }} style={btn(myBids[p.id.toString()] ? "var(--red)" : "var(--text-secondary)")}>
+                              {myBids[p.id.toString()] ? "WITHDRAW BID" : "PLACE BID"}
                             </button>
                           )}
                         </div>
