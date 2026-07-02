@@ -4,6 +4,7 @@
 import PlayerRegistryJSON      from './PlayerRegistry.json'
 import TransferEscrowJSON      from './TransferEscrow.json'
 import DealEscrowJSON          from './DealEscrow.json'
+import CompetingBidManagerJSON  from './CompetingBidManager.json'
 import LoanEscrowJSON          from './LoanEscrow.json'
 import ReleaseEscrowJSON       from './ReleaseEscrow.json'
 import InstallmentEscrowJSON   from './InstallmentEscrow.json'
@@ -16,6 +17,7 @@ import TerminationManagerJSON  from './TerminationManager.json'
 export const PLAYER_REGISTRY_ABI      = PlayerRegistryJSON.abi
 export const TRANSFER_ESCROW_ABI      = TransferEscrowJSON.abi
 export const DEAL_ESCROW_ABI          = DealEscrowJSON.abi
+export const COMPETING_BID_MANAGER_ABI = CompetingBidManagerJSON.abi
 export const LOAN_ESCROW_ABI          = LoanEscrowJSON.abi
 export const RELEASE_ESCROW_ABI       = ReleaseEscrowJSON.abi
 export const INSTALLMENT_ESCROW_ABI   = InstallmentEscrowJSON.abi
