@@ -45,7 +45,7 @@ interface Installment { amount: bigint; dueDate: bigint; paid: boolean; }
 interface Deal {
   id: bigint; playerId: bigint; playerName: string;
   sellingClub: string; buyingClub: string; paymentToken: string;
-  transferFee: bigint; signingBonusAmount: bigint;
+  transferFee: bigint; signingBonusAmount: bigint; signingBonusClaimed: boolean;
   state: number; stateDeadline: bigint;
   installments: Installment[];
 }
@@ -79,14 +79,24 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
 
       for (let i = 1; i <= total; i++) {
         try {
-          const d = await dealEscrow.getDealView(i);
-          if (!d.exists) continue;
+          const d = await dealEscrow.getDealFull(i);
+          const [exists, playerId, sellingClub, buyingClub, paymentToken,
+                 transferFee, signingBonusAmount, signingBonusClaimed,
+                 state, stateDeadline] = d;
+          if (!exists) continue;
           const isInvolved =
-            d.buyingClub.toLowerCase()  === wallet.address!.toLowerCase() ||
-            d.sellingClub.toLowerCase() === wallet.address!.toLowerCase();
+            buyingClub.toLowerCase()  === wallet.address!.toLowerCase() ||
+            sellingClub.toLowerCase() === wallet.address!.toLowerCase();
           if (!isInvolved) continue;
 
-          // I load installments up to index 8 — stop at first zero-amount slot
+          // Fetch player name
+          let playerName = `Deal #${i}`;
+          try {
+            const p = await registry.getPlayer(playerId);
+            if (p.name) playerName = p.name;
+          } catch {}
+
+          // Load installments
           const installments: Installment[] = [];
           for (let j = 0; j < 8; j++) {
             try {
@@ -96,20 +106,15 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
             } catch { break; }
           }
           if (installments.length === 0) {
-            installments.push({ amount: d.transferFee, dueDate: 0n, paid: false });
+            installments.push({ amount: transferFee, dueDate: 0n, paid: false });
           }
 
-          // I try to get playerId via getExpiryView which exposes it indirectly — 
-          // DealView doesn't include playerId so we label with deal id for now
-          let playerName = `Deal #${i}`;
-          // Try getClaimable as a proxy to confirm deal exists — playerId not in DealView
-          // We'll use 0n as placeholder; the player name comes from installment context
           result.push({
-            id: BigInt(i), playerId: 0n, playerName,
-            sellingClub: d.sellingClub, buyingClub: d.buyingClub,
-            paymentToken: d.paymentToken, transferFee: d.transferFee,
-            signingBonusAmount: 0n,
-            state: Number(d.state), stateDeadline: d.stateDeadline,
+            id: BigInt(i), playerId, playerName,
+            sellingClub, buyingClub,
+            paymentToken, transferFee,
+            signingBonusAmount, signingBonusClaimed,
+            state: Number(state), stateDeadline,
             installments,
           });
         } catch {}
@@ -223,6 +228,19 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     try {
       await waitForTx(await cbMgrSigned().confirmOriginal(d.id), wallet.provider!);
       setTxStatus("Original deal confirmed — Club C deposit returned.");
+      await load();
+    } catch (err: any) { setTxStatus(parseError(err)); }
+  }
+
+  async function activateAfterFailedMedical(d: Deal) {
+    if (!wallet.signer) return;
+    setTxStatus("Activating competing club after failed medical...");
+    try {
+      await waitForTx(
+        await cbMgrSigned().activateAfterFailedMedical(d.id),
+        wallet.provider!
+      );
+      setTxStatus("Competing club activated — deal restarted with new buyer.");
       await load();
     } catch (err: any) { setTxStatus(parseError(err)); }
   }
@@ -464,9 +482,15 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           </div>
                         )}
                         {/* Claim salary guarantee */}
-                        {d.state === 13 && isBuyer(d) && d.signingBonusAmount > 0n && (
+                        {d.state === 13 && isBuyer(d) && d.signingBonusAmount > 0n && !d.signingBonusClaimed && (
                           <button onClick={() => claimSigningBonus(d)} style={btn("var(--gold)", "rgba(201,168,76,0.08)")}>
                             CLAIM SIGNING BONUS
+                          </button>
+                        )}
+                        {/* Activate competing club after failed medical */}
+                        {d.state === 14 && competingBids[d.id.toString()]?.acceptedAt > 0n && (
+                          <button onClick={() => activateAfterFailedMedical(d)} style={btn("var(--amber)", "rgba(201,168,76,0.08)")}>
+                            ACTIVATE COMPETING CLUB
                           </button>
                         )}
                         {/* Process expiry */}
