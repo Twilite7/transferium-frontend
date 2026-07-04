@@ -33,7 +33,7 @@ interface ListedPlayer {
 interface Offer {
   id: bigint; playerId: bigint; playerName: string;
   sellingClub: string; paymentToken: string; askingPrice: bigint;
-  sellOnBps: bigint; sellerAgentBps: bigint; minimumHijackIncrementBps: bigint;
+  sellOnBps: bigint; sellerAgentBps: bigint;
   activeNegotiations: bigint; exists: boolean;
 }
 
@@ -71,7 +71,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
   // Offer form
   const [offerForm, setOfferForm] = useState({
     askingPrice: "", sellOnBps: "0", sellOnRecipient: "",
-    sellerAgentBps: "0", sellerAgent: "", minimumHijackIncrementBps: "500",
+    sellerAgentBps: "0", sellerAgent: "",
   })
   const [addOns, setAddOns] = useState<{ description: string; amount: string; toPlayer: boolean }[]>([])
   const [addOnForm, setAddOnForm] = useState({ desc: "", amount: "", toPlayer: false })
@@ -141,7 +141,6 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
             sellingClub: o.sellingClub, paymentToken: o.paymentToken,
             askingPrice: o.askingPrice, sellOnBps: o.sellOnBps,
             sellerAgentBps: o.sellerAgentBps,
-            minimumHijackIncrementBps: o.minimumHijackIncrementBps,
             activeNegotiations: o.activeNegotiations, exists: o.exists,
           }
           offers.push(offer)
@@ -224,8 +223,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                 sellingClub: o.sellingClub, paymentToken: o.paymentToken,
                 askingPrice: o.askingPrice, sellOnBps: o.sellOnBps,
                 sellerAgentBps: o.sellerAgentBps,
-                minimumHijackIncrementBps: o.minimumHijackIncrementBps,
-                activeNegotiations: o.activeNegotiations, exists: o.exists,
+                    activeNegotiations: o.activeNegotiations, exists: o.exists,
               },
               bids: activeBids.map((b: any) => ({
                 offerId: b.offerId, buyingClub: b.buyingClub,
@@ -287,7 +285,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
         offerForm.sellOnRecipient || ethers.ZeroAddress,
         parseInt(offerForm.sellerAgentBps) || 0,
         offerForm.sellerAgent || ethers.ZeroAddress,
-        parseInt(offerForm.minimumHijackIncrementBps) || 500,
+        500,
         formattedAddOns
       )
       setTxStatus("Waiting for confirmation...")
@@ -295,7 +293,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       setTxStatus("Offer created.")
       setSelectedPlayer(null)
       setAddOns([])
-      setOfferForm({ askingPrice: "", sellOnBps: "0", sellOnRecipient: "", sellerAgentBps: "0", sellerAgent: "", minimumHijackIncrementBps: "500" })
+      setOfferForm({ askingPrice: "", sellOnBps: "0", sellOnRecipient: "", sellerAgentBps: "0", sellerAgent: "" })
       await loadAll()
     } catch (err: any) {
       setTxStatus(`Error: ${err.reason ?? err.message}`)
@@ -490,7 +488,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                                 if (myBids[p.id.toString()]) {
                                   await withdrawBid(offerId)
                                 } else {
-                                  setSelectedOffer({ id: offerId, playerId: p.id, playerName: p.name, sellingClub: p.currentClub, paymentToken: EURC_ADDRESS, askingPrice: p.askingPrice, sellOnBps: 0n, sellerAgentBps: 0n, minimumHijackIncrementBps: 500n, activeNegotiations: 0n, exists: true })
+                                  setSelectedOffer({ id: offerId, playerId: p.id, playerName: p.name, sellingClub: p.currentClub, paymentToken: EURC_ADDRESS, askingPrice: p.askingPrice, sellOnBps: 0n, sellerAgentBps: 0n, activeNegotiations: 0n, exists: true })
                                 }
                               } catch { alert("Failed to load offer. Try again."); }
                             }} style={btn(myBids[p.id.toString()] ? "var(--red)" : "var(--text-secondary)")}>
@@ -517,9 +515,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                     <div><label style={labelStyle}>SELL-ON BPS (0–2000)</label>
                       <input type="number" placeholder="e.g. 500" value={offerForm.sellOnBps} onChange={e => setOfferForm(p => ({ ...p, sellOnBps: e.target.value }))} style={inputStyle} />
                     </div>
-                    <div><label style={labelStyle}>MIN HIJACK INCREMENT BPS</label>
-                      <input type="number" placeholder="e.g. 500" value={offerForm.minimumHijackIncrementBps} onChange={e => setOfferForm(p => ({ ...p, minimumHijackIncrementBps: e.target.value }))} style={inputStyle} />
-                    </div>
+
                   </div>
                   {parseInt(offerForm.sellOnBps) > 0 && (
                     <div style={{ marginBottom: "1rem" }}>

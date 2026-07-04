@@ -87,8 +87,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   "TooManyAddOns":                    "Maximum of 10 performance add-ons per offer.",
   "TimerTooShort":                    "Timer duration is below the minimum allowed.",
   "DealNotFound":                     "Deal not found.",
-  "HijackWindowClosed":               "The hijack window is closed — no more hijack bids accepted.",
-  "CannotHijackOwnDeal":              "You cannot hijack a deal you are already party to.",
   "BidNotHighEnough":                 "Hijack bid does not meet the minimum increment requirement.",
   "DealIsFrozen":                     "This deal is currently frozen by the league.",
   "NotBuyingClub":                    "Only the buying club can perform this action.",

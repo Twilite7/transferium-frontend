@@ -425,16 +425,16 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
 
       <Section title="DEAL TIMERS (TESTNET)">
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", marginBottom: "1rem" }}>
-          Override deal state timeouts. On testnet set these low for faster testing. Timer indices: 0=consent, 1=medical, 2=hijack window, 3=renegotiation, 4=medical renegotiation, 5=hijack funding.
+          Override deal state timeouts. On testnet set these low for faster testing. Timer indices: 0=consent, 1=medical, 2=unused, 3=dispute, 4=medical renegotiation, 5=funding window.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
           {[
             { which: 0, label: "CONSENT (72h default)" },
             { which: 1, label: "MEDICAL (72h default)" },
-            { which: 2, label: "HIJACK WINDOW (48h default)" },
+            { which: 2, label: "UNUSED (was hijack)" },
             { which: 3, label: "RENEGOTIATION (72h default)" },
             { which: 4, label: "MED RENEGOTIATION (72h default)" },
-            { which: 5, label: "HIJACK FUNDING (72h default)" },
+            { which: 5, label: "FUNDING WINDOW (72h default)" },
           ].map(({ which, label }) => (
             <div key={which} style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem" }}>
               <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>TIMER {which} — {label}</p>
