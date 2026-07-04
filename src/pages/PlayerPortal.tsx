@@ -166,8 +166,8 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
           const d = await dealEscrow.getDealView(dealId)
           const state = Number(d.state)
           // I skip completed/cancelled deals unless there's a claimable signing bonus
-          if (state === 17) continue
-          if (state === 16 && (d.signingBonusAmount ?? 0n) === 0n) continue
+          if (state === 14) continue
+          if (state === 13 && (d.signingBonusAmount ?? 0n) === 0n) continue
           deals.push({
             dealId,
             playerId:              player.id,
@@ -326,8 +326,8 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
             const dl = deadline(deal.stateDeadline)
             const expired = isExpired(deal.stateDeadline)
             const needsConsent = deal.state === 5 || deal.state === 10
-            const canClaim = deal.state === 16 && deal.signingBonusAmount > 0n && !deal.signingBonusClaimed
-            const showWithdraw = deal.state === 16 || deal.state === 17
+            const canClaim = deal.state === 13 && deal.signingBonusAmount > 0n && !deal.signingBonusClaimed
+            const showWithdraw = deal.state === 13 || deal.state === 14
 
             return (
               <div key={deal.dealId.toString()} style={{ background: "var(--bg-card)", border: `1px solid ${stateColor}44`, borderRadius: "var(--radius-lg)", padding: "1.5rem 2rem", marginBottom: "1.25rem" }}>
@@ -341,7 +341,7 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
                     <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-dim)" }}>
                       Deal #{deal.dealId.toString()}
                       {dl && ` · Deadline: ${dl}`}
-                      {expired && deal.state < 16 && <span style={{ color: "var(--red)" }}> · EXPIRED</span>}
+                      {expired && deal.state < 13 && <span style={{ color: "var(--red)" }}> · EXPIRED</span>}
                     </p>
                   </div>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.08em", padding: "3px 10px", borderRadius: "var(--radius-sm)", border: `1px solid ${stateColor}`, color: stateColor }}>

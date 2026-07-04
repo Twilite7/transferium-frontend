@@ -10,10 +10,9 @@ import { parseError } from "../utils/parseError";
 const DEAL_STATES: Record<number, string> = {
   0:  "NONE", 1: "OFFER_CREATED", 2: "BID_SUBMITTED", 3: "NEGOTIATING",
   4:  "BID_ACCEPTED", 5: "AWAITING_CONSENT", 6: "AWAITING_MEDICAL",
-  7:  "MEDICAL_RENEGOTIATION", 8: "MEDICAL_DISPUTE", 9: "HIJACK_WINDOW",
-  10: "AWAITING_HIJACK_CONSENT", 11: "AWAITING_HIJACK_MEDICAL",
-  12: "MUTUAL_CANCEL_PROPOSED", 13: "FUNDING_PENDING", 14: "FUNDED",
-  15: "DISPUTE_WINDOW", 16: "COMPLETED", 17: "CANCELLED",
+  7:  "MEDICAL_RENEGOTIATION", 8: "MEDICAL_DISPUTE",
+  9:  "MUTUAL_CANCEL_PROPOSED", 10: "FUNDING_PENDING", 11: "FUNDED",
+  12: "DISPUTE_WINDOW", 13: "COMPLETED", 14: "CANCELLED",
 };
 
 const STATE_COLOR: Record<string, string> = {
@@ -203,8 +202,8 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const fmtDate = (ts: bigint) => ts > 0n ? new Date(Number(ts) * 1000).toLocaleDateString() : "—";
   const now = BigInt(Math.floor(Date.now() / 1000));
 
-  const active   = deals.filter(d => d.state < 16);
-  const complete = deals.filter(d => d.state >= 16);
+  const active   = deals.filter(d => d.state < 13);
+  const complete = deals.filter(d => d.state >= 13);
 
   return (
     <div style={{ padding: "2rem 2.5rem", maxWidth: 1100, margin: "0 auto" }}>
@@ -309,7 +308,7 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                                   <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                                     {inst.paid && <span style={{ ...mono("0.6rem", "var(--green)") }}>✓ PAID</span>}
                                     {overdue && <span style={{ ...mono("0.6rem", "var(--red)") }}>OVERDUE</span>}
-                                    {due && isBuyer(d) && d.state === 16 && (
+                                    {due && isBuyer(d) && d.state === 13 && (
                                       <button onClick={() => payInstallment(d, idx)} style={btn("var(--gold)", "rgba(201,168,76,0.08)")}>
                                         PAY
                                       </button>
@@ -325,7 +324,7 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                       {/* Actions */}
                       <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
                         {/* Fund */}
-                        {d.state === 13 && isBuyer(d) && isClub && (
+                        {d.state === 10 && isBuyer(d) && isClub && (
                           <button onClick={() => fundDeal(d)} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>
                             FUND DEAL
                           </button>
@@ -355,13 +354,13 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           </div>
                         )}
                         {/* Claim salary guarantee */}
-                        {d.state === 16 && isBuyer(d) && d.signingBonusAmount > 0n && (
+                        {d.state === 13 && isBuyer(d) && d.signingBonusAmount > 0n && (
                           <button onClick={() => claimSigningBonus(d)} style={btn("var(--gold)", "rgba(201,168,76,0.08)")}>
                             CLAIM SIGNING BONUS
                           </button>
                         )}
                         {/* Process expiry */}
-                        {d.stateDeadline > 0n && now > d.stateDeadline && d.state < 16 && (
+                        {d.stateDeadline > 0n && now > d.stateDeadline && d.state < 13 && (
                           <button onClick={() => processExpiry(d)} style={btn("var(--text-dim)")}>
                             PROCESS EXPIRY
                           </button>
