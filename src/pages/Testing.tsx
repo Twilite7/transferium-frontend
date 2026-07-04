@@ -154,12 +154,12 @@ export function Testing() {
           {cardTitle("◈", <span>Phase 4 — Transfer <span style={{ marginLeft: "0.5rem" }}>{tag("var(--green)", "rgba(45,206,137,0.08)", "wallet: Club A / Club B / Player")}</span></span>)}
           {step("11", <>{code("Club A")}: List player at an asking price on the Transfers page.</>)}
           {step("12", <>{code("Club B")}: Submit a bid. Up to 3 rounds of negotiation — try lowball, counter, accept to test the full negotiation flow.</>)}
-          {step("13", <>{code("Club A")}: Accept the bid. A Deal is created in DealEscrow.</>)}
-          {step("14", <>{code("Club B")}: Fund the deal — approves and transfers agreed fee + signing bonus to escrow.</>)}
-          {step("15", <>{code("Player wallet (W4)")}: Connect and go to Player page → give consent to the transfer.</>)}
-          {step("16", <>{code("Club B")}: Submit medical pass. The 48-hour dispute window starts.</>)}
-          {step("17", <>After 48 hours, call {code("processExpiry")}. NFT ownership transfers to Club B, fees distributed to Club A and agents.</>)}
-          {step("18", <>{code("Player wallet")}: Claim signing bonus on the Player page.</>)}
+          {step("13", <>{code("Club A")}: Accept the bid. A Deal is created in DealEscrow. Player consent is now required.</>)}
+          {step("14", <>{code("Player wallet (W4)")}: Connect and go to Player page → give consent to the transfer. Deal moves to {code("AWAITING_MEDICAL")}. Competing bids are now open.</>)}
+          {step("15", <>{code("Club B")}: Go to Deals page → submit medical pass (PASSED). Deal moves to {code("FUNDING_PENDING")}. Competing bids still open until funded.</>)}
+          {step("16", <>{code("Club B")}: Fund the deal — approves and transfers agreed fee to escrow. Deal completes immediately — NFT transfers to Club B, fees distributed.</>)}
+          {step("17", <>{code("Player wallet")}: Claim signing bonus on the Player page (if a signing bonus was agreed).</>)}
+          {step("17b", <>Optional — test competing bid: after step 14, connect Club C wallet → Deals page → Submit Competing Bid with a higher fee. Club A can Accept, Club B can Match within 24h or let it expire.</>)}
         </>)}
       </>)}
 
