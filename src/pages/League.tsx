@@ -8,6 +8,7 @@ import {
   LOAN_ESCROW_ABI,
   TRANSFER_WINDOW_ABI,
   DEAL_ESCROW_ABI,
+  COMPETING_BID_MANAGER_ABI,
 } from "../config/abis";
 import { parseError } from "../utils/parseError";
 import { waitForTx } from "../utils/waitForTx";
@@ -70,6 +71,10 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [feeScheduleInfo, setFeeScheduleInfo]   = useState<{ pending: bigint; effectiveAt: bigint } | null>(null);
   const [feeBalances, setFeeBalances]           = useState<{ PlayerRegistry: bigint; TransferEscrow: bigint; LoanEscrow: bigint } | null>(null);
   const [loadingBalances, setLoadingBalances]   = useState(false);
+  const [cbDepositBps, setCbDepositBps]         = useState("");
+  const [cbCounterBps, setCbCounterBps]         = useState("");
+  const [cbMatchWindow, setCbMatchWindow]       = useState("");
+  const [cbFundWindow, setCbFundWindow]         = useState("");
 
   useEffect(() => {
     if (!wallet.provider || !wallet.address) return;
@@ -263,6 +268,17 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
     } catch (err: any) { setStatus(parseError(err)); }
   }
 
+  async function setCbConfig(fn: string, value: string, isSeconds = false) {
+    if (!wallet.signer || !value) return;
+    setStatus(`Setting ${fn}...`);
+    try {
+      const mgr = new ethers.Contract(CONTRACTS.CompetingBidManager, COMPETING_BID_MANAGER_ABI, wallet.signer);
+      const parsed = isSeconds ? BigInt(value) : BigInt(value);
+      await waitForTx(await (mgr as any)[fn](parsed), wallet.provider!);
+      setStatus(`${fn} updated.`);
+    } catch (err: any) { setStatus(parseError(err)); }
+  }
+
   async function withdrawFees(contractName: string, contractAddr: string, abi: any) {
     if (!wallet.signer || !withdrawAmount) return;
     setStatus(`Withdrawing from ${contractName}...`);
@@ -431,6 +447,34 @@ export function League({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                 </button>
                 <button onClick={() => setDealTimer(which, 259200)} style={btn("var(--text-dim)")}>
                   RESET (72H)
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="COMPETING BID CONFIG">
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--text-dim)", marginBottom: "1rem" }}>
+          Configure CompetingBidManager parameters. Deposit BPS are basis points (1000 = 10%).
+          Windows are in seconds.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.75rem" }}>
+          {([
+            { label: "COMPETING DEPOSIT BPS", val: cbDepositBps, set: setCbDepositBps, fn: "setCompetingDepositBps", hint: "e.g. 1000 = 10%" },
+            { label: "COUNTER DEPOSIT BPS",   val: cbCounterBps, set: setCbCounterBps, fn: "setCounterDepositBps",   hint: "e.g. 1000 = 10%" },
+            { label: "MATCHING WINDOW (secs)", val: cbMatchWindow, set: setCbMatchWindow, fn: "setMatchingWindow",    hint: "e.g. 86400 = 24h", isSeconds: true },
+            { label: "FUNDING WINDOW (secs)",  val: cbFundWindow,  set: setCbFundWindow,  fn: "setThirdPartyFundingWindow", hint: "e.g. 259200 = 72h", isSeconds: true },
+          ] as const).map(({ label, val, set, fn, hint, isSeconds }: any) => (
+            <div key={fn} style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem" }}>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--text-dim)", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>{label}</p>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input type="number" placeholder={hint} value={val}
+                  onChange={e => set(e.target.value)}
+                  style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-primary)", fontFamily: "var(--font-mono)", fontSize: "0.7rem", padding: "4px 8px", outline: "none", width: "100%" }} />
+                <button onClick={() => setCbConfig(fn, val, isSeconds)} disabled={!val}
+                  style={btn("var(--gold)", !val ? "transparent" : "rgba(201,168,76,0.08)", !val)}>
+                  SET
                 </button>
               </div>
             </div>
