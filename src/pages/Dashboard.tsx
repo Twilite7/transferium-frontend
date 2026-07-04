@@ -271,7 +271,8 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                 ["Escrow-first transfers", "Transfer fees, salary guarantees, agent commissions and sell-on clauses are locked in smart contract escrow before any player movement is approved."],
                 ["Multi-stage verification", "Clubs submit medical and legal document hashes. A licensed registrar independently verifies each hash off-chain and signs the approval on-chain."],
                 ["Loan & swap markets", "Clubs can negotiate temporary loans with recall rights and optional purchase clauses, or propose player-for-player swaps — all enforced by contract."],
-                ["Dispute resolution", "A 48-hour dispute window and league-level arbitration are built into every transfer. No single party can unilaterally exit a funded deal."],
+                ["Competing bids", "Any club can submit a competing bid during the medical and funding windows. The selling club decides — the displaced club receives the competing deposit as compensation."],
+                ["Dispute resolution", "League-level arbitration is built into every transfer. No single party can unilaterally exit a funded deal."],
               ].map(([title, desc]) => (
                 <div key={title}>
                   <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--text-primary)", marginBottom: "0.2rem" }}>{title}</p>
@@ -290,9 +291,9 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                 ["03", "Club requests registrar verification and pays the verification fee. Registrar has 72 hours to act."],
                 ["04", "Registrar verifies documents off-chain, confirms on-chain. Player status becomes VERIFIED."],
                 ["05", "Selling club lists player at an asking price. Buying clubs submit bids via TransferEscrow."],
-                ["06", "Selling club accepts a bid. A Deal is created in DealEscrow. Buying club funds the deal — transfer fee + signing bonus."],
-                ["07", "Both clubs and the player consent. Medical pass triggers the 48-hour dispute window."],
-                ["08", "On expiry with no dispute, DealEscrow settles: fee to selling club, agent cuts split, signing bonus claimable by player, NFT ownership transferred."],
+                ["06", "Selling club accepts a bid. Player consents — deal enters the medical window. Competing clubs can submit bids during this period."],
+                ["07", "Buying club submits medical. If passed, deal moves to funding stage. Competing bids remain open until the deal is funded."],
+                ["08", "Buying club funds the deal. Settlement is immediate — fee to selling club, agent cuts split, signing bonus claimable by player, NFT ownership transferred."],
               ].map(([step, desc]) => (
                 <div key={step} style={{ display: "flex", gap: "1rem", alignItems: "baseline" }}>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "var(--gold)", minWidth: "20px", flexShrink: 0 }}>{step}</span>
