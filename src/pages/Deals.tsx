@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { useWallet } from "../hooks/useWallet";
 import { CONTRACTS } from "../config/contracts";
-import { DEAL_ESCROW_ABI, TRANSFER_ESCROW_ABI, INSTALLMENT_ESCROW_ABI, PLAYER_REGISTRY_ABI } from "../config/abis";
+import { DEAL_ESCROW_ABI, TRANSFER_ESCROW_ABI, INSTALLMENT_ESCROW_ABI, PLAYER_REGISTRY_ABI, COMPETING_BID_MANAGER_ABI } from "../config/abis";
 import { waitForTx } from "../utils/waitForTx";
 import { sendWithMemo } from "../utils/sendWithMemo";
 import { parseError } from "../utils/parseError";
@@ -57,6 +57,9 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [isClub, setIsClub]     = useState(false);
   const [medicalHash, setMedicalHash] = useState<Record<string, string>>({});
+  const [competingBids, setCompetingBids] = useState<Record<string, any>>({});
+  const [cbFee, setCbFee]     = useState<Record<string, string>>({});
+
 
   const load = useCallback(async () => {
     if (!wallet.provider || !wallet.address) return;
@@ -111,11 +114,102 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
         } catch {}
       }
       setDeals(result);
+      // Fetch competing bids for all deals
+      const cbMap: Record<string, any> = {};
+      const cbMgr = new ethers.Contract(CONTRACTS.CompetingBidManager, COMPETING_BID_MANAGER_ABI, wallet.provider);
+      for (const deal of result) {
+        try {
+          const bid = await cbMgr.getCompetingBid(deal.id);
+          if (bid.competingClub !== ethers.ZeroAddress) {
+            cbMap[deal.id.toString()] = bid;
+          }
+        } catch {}
+      }
+      setCompetingBids(cbMap);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }, [wallet.provider, wallet.address]);
 
   useEffect(() => { load(); }, [load]);
+
+  function cbMgrSigned() {
+    return new ethers.Contract(CONTRACTS.CompetingBidManager, COMPETING_BID_MANAGER_ABI, wallet.signer!);
+  }
+
+  async function submitCompetingBid(d: Deal) {
+    if (!wallet.signer) return;
+    const feeStr = cbFee[d.id.toString()];
+    if (!feeStr) { setTxStatus("Enter a proposed fee."); return; }
+    const fee = ethers.parseUnits(feeStr, 6);
+    setTxStatus("Approving deposit...");
+    try {
+      const mgr = await cbMgrSigned();
+      const depositBps = await mgr.competingDepositBps();
+      const deposit = (fee * depositBps) / 10000n;
+      const token = new ethers.Contract(d.paymentToken, ["function approve(address,uint256) external returns (bool)"], wallet.signer);
+      await waitForTx(await token.approve(CONTRACTS.CompetingBidManager, deposit), wallet.provider!);
+      setTxStatus("Submitting competing bid...");
+      await waitForTx(await mgr.submitCompetingBid(d.id, fee, 0, ethers.ZeroAddress, 0), wallet.provider!);
+      setTxStatus("Competing bid submitted.");
+      await load();
+    } catch (err: any) { setTxStatus(parseError(err)); }
+  }
+
+  async function acceptCompetingBid(d: Deal) {
+    if (!wallet.signer) return;
+    setTxStatus("Accepting competing bid...");
+    try {
+      await waitForTx(await cbMgrSigned().acceptCompetingBid(d.id), wallet.provider!);
+      setTxStatus("Competing bid accepted — Club B has 24h to match.");
+      await load();
+    } catch (err: any) { setTxStatus(parseError(err)); }
+  }
+
+  async function ignoreCompetingBid(d: Deal) {
+    if (!wallet.signer) return;
+    setTxStatus("Ignoring competing bid...");
+    try {
+      await waitForTx(await cbMgrSigned().ignoreCompetingBid(d.id), wallet.provider!);
+      setTxStatus("Competing bid ignored — deposit returned to Club C.");
+      await load();
+    } catch (err: any) { setTxStatus(parseError(err)); }
+  }
+
+  async function matchCompetingBid(d: Deal) {
+    if (!wallet.signer) return;
+    setTxStatus("Approving counter-deposit...");
+    try {
+      const mgr = await cbMgrSigned();
+      const counterBps = await mgr.counterDepositBps();
+      const deposit = (d.transferFee * counterBps) / 10000n;
+      const token = new ethers.Contract(d.paymentToken, ["function approve(address,uint256) external returns (bool)"], wallet.signer);
+      await waitForTx(await token.approve(CONTRACTS.CompetingBidManager, deposit), wallet.provider!);
+      setTxStatus("Matching competing bid...");
+      await waitForTx(await mgr.matchCompetingBid(d.id), wallet.provider!);
+      setTxStatus("Bid matched — waiting for Club A to confirm.");
+      await load();
+    } catch (err: any) { setTxStatus(parseError(err)); }
+  }
+
+  async function confirmSwitch(d: Deal) {
+    if (!wallet.signer) return;
+    setTxStatus("Confirming switch to competing club...");
+    try {
+      await waitForTx(await cbMgrSigned().confirmSwitch(d.id), wallet.provider!);
+      setTxStatus("Switch confirmed — Club C is now the buyer.");
+      await load();
+    } catch (err: any) { setTxStatus(parseError(err)); }
+  }
+
+  async function confirmOriginal(d: Deal) {
+    if (!wallet.signer) return;
+    setTxStatus("Confirming original deal with Club B...");
+    try {
+      await waitForTx(await cbMgrSigned().confirmOriginal(d.id), wallet.provider!);
+      setTxStatus("Original deal confirmed — Club C deposit returned.");
+      await load();
+    } catch (err: any) { setTxStatus(parseError(err)); }
+  }
 
   async function submitMedical(d: Deal, outcome: number, hash: string) {
     if (!wallet.signer) return;
@@ -366,6 +460,76 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                           </button>
                         )}
                       </div>
+
+                      {/* ── Competing Bid Panel ── */}
+                      {(d.state === 6 || d.state === 10) && (() => {
+                        const cb = competingBids[d.id.toString()];
+                        const isSeller = d.sellingClub.toLowerCase() === wallet.address?.toLowerCase();
+                        const isCurrentBuyer = d.buyingClub.toLowerCase() === wallet.address?.toLowerCase();
+                        const cbAccepted = cb && cb.acceptedAt > 0n;
+                        const matchOpen = cbAccepted && BigInt(Math.floor(Date.now()/1000)) <= cb.matchDeadline;
+                        return (
+                          <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "0.75rem" }}>
+                            <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--text-dim)", letterSpacing: "0.1em", marginBottom: "0.75rem" }}>COMPETING BID</p>
+
+                            {/* Existing bid info */}
+                            {cb && (
+                              <div style={{ background: "var(--bg-primary)", border: "1px solid var(--border-accent)", borderRadius: "var(--radius-sm)", padding: "0.6rem 0.8rem", marginBottom: "0.6rem", fontFamily: "var(--font-mono)", fontSize: "0.65rem" }}>
+                                <p style={{ color: "var(--text-dim)" }}>FROM: <span style={{ color: "var(--text-primary)" }}>{cb.competingClub.slice(0,10)}...</span></p>
+                                <p style={{ color: "var(--text-dim)" }}>FEE: <span style={{ color: "var(--gold)" }}>{ethers.formatUnits(cb.proposedFee, 6)} EURC</span></p>
+                                <p style={{ color: "var(--text-dim)" }}>STATUS: <span style={{ color: cbAccepted ? "var(--amber)" : "var(--text-secondary)" }}>{cbAccepted ? (cb.clubBMatched ? "MATCHED BY CLUB B" : matchOpen ? "AWAITING CLUB B MATCH" : "MATCH WINDOW CLOSED") : "PENDING ACCEPTANCE"}</span></p>
+                                {cbAccepted && <p style={{ color: "var(--text-dim)" }}>MATCH DEADLINE: <span style={{ color: "var(--text-primary)" }}>{new Date(Number(cb.matchDeadline) * 1000).toLocaleString()}</span></p>}
+                              </div>
+                            )}
+
+                            {/* Club C: submit competing bid */}
+                            {isClub && !isSeller && !isCurrentBuyer && !cb && (
+                              <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.4rem", marginBottom: "0.5rem" }}>
+                                <input type="number" placeholder="Proposed fee (EURC)" value={cbFee[d.id.toString()] ?? ""}
+                                  onChange={e => setCbFee(p => ({ ...p, [d.id.toString()]: e.target.value }))}
+                                  style={{ background: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-primary)", fontFamily: "var(--font-mono)", fontSize: "0.7rem", padding: "5px 8px", outline: "none" }} />
+                                <button onClick={() => submitCompetingBid(d)} disabled={!cbFee[d.id.toString()]} style={btn("var(--gold)", "rgba(201,168,76,0.08)", !cbFee[d.id.toString()])}>
+                                  SUBMIT COMPETING BID
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Club A: accept or ignore */}
+                            {isSeller && cb && !cbAccepted && (
+                              <div style={{ display: "flex", gap: "0.5rem" }}>
+                                <button onClick={() => acceptCompetingBid(d)} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>
+                                  ACCEPT
+                                </button>
+                                <button onClick={() => ignoreCompetingBid(d)} style={btn("var(--red)")}>
+                                  IGNORE
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Club A: confirm after matching window */}
+                            {isSeller && cbAccepted && !matchOpen && (
+                              <div style={{ display: "flex", gap: "0.5rem" }}>
+                                <button onClick={() => confirmSwitch(d)} style={btn("var(--gold)", "rgba(201,168,76,0.08)")}>
+                                  CONFIRM SWITCH TO COMPETING CLUB
+                                </button>
+                                {cb.clubBMatched && (
+                                  <button onClick={() => confirmOriginal(d)} style={btn("var(--green)", "rgba(45,206,137,0.08)")}>
+                                    CONFIRM ORIGINAL DEAL
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Club B: match */}
+                            {isCurrentBuyer && cbAccepted && matchOpen && !cb.clubBMatched && (
+                              <button onClick={() => matchCompetingBid(d)} style={btn("var(--amber)", "rgba(201,168,76,0.08)")}>
+                                MATCH COMPETING BID
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                     </div>
                   )}
                 </div>
