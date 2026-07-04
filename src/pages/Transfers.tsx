@@ -63,6 +63,9 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
   const [tab, setTab]                         = useState<"market" | "offers" | "league">("market")
   const [isLeague, setIsLeague]               = useState(false)
   const [isClub, setIsClub]                   = useState(false)
+  const [clubNames, setClubNames]             = useState<Record<string, string>>({})
+  const clubLabel = (addr: string) =>
+    clubNames[addr.toLowerCase()] || `${addr.slice(0,8)}...${addr.slice(-6)}`
   const [leagueOffers, setLeagueOffers]       = useState<{ offer: Offer; bids: Bid[] }[]>([])
 
   // Offer form
@@ -160,6 +163,18 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       }
       setMyOffers(offers)
       setOfferBids(bidsMap)
+      // Fetch club names for all addresses seen in offers and bids
+      const addrs = new Set<string>()
+      for (const o of offers) addrs.add(o.sellingClub)
+      for (const bids of Object.values(bidsMap)) for (const b of bids) addrs.add(b.buyingClub)
+      const nameMap: Record<string, string> = {}
+      for (const addr of addrs) {
+        try {
+          const name = await registry.getClubName(addr)
+          if (name) nameMap[addr.toLowerCase()] = name
+        } catch {}
+      }
+      setClubNames(nameMap)
       // I fetch my own active bids keyed by playerId for the market tab
       if (wallet.address) {
         const bidsForMe: Record<string, Bid> = {}
@@ -654,7 +669,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                           <div key={bid.buyingClub} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem", marginBottom: "0.5rem" }}>
                             <div>
                               <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", marginBottom: "0.2rem" }}>
-                                {bid.buyingClub.slice(0, 8)}...{bid.buyingClub.slice(-6)} — <span style={{ color: "var(--gold)" }}>€{(Number(bid.transferFee) / 1e6).toLocaleString()}</span>
+                                {clubLabel(bid.buyingClub)} — <span style={{ color: "var(--gold)" }}>€{(Number(bid.transferFee) / 1e6).toLocaleString()}</span>
                               </p>
                               <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "var(--text-dim)" }}>
                                 Salary guarantee: {bid.signingBonusMonths.toString()} months · Round {bid.roundNumber.toString()} · {bid.isCounterFromSeller ? "Waiting for buyer" : "Your turn"}
@@ -706,7 +721,7 @@ export function Transfers({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
                     return (
                       <div key={idx} style={{ borderTop: "1px solid var(--border)", paddingTop: "0.75rem", marginTop: "0.5rem" }}>
                         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-secondary)", marginBottom: "0.5rem" }}>
-                          {bid.buyingClub.slice(0,10)}...{bid.buyingClub.slice(-6)} ·
+                          {clubLabel(bid.buyingClub)} ·
                           €{(Number(bid.transferFee) / 1e6).toLocaleString()} ·
                           Round {bid.roundNumber.toString()} · {BID_STATUS[bid.status]}
                           {bid.isCounterFromSeller ? " · Waiting on buyer" : " · Waiting on seller"}

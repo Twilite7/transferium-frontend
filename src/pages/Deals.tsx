@@ -56,6 +56,7 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [txStatus, setTxStatus] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [isClub, setIsClub]     = useState(false);
+  const [clubNames, setClubNames] = useState<Record<string, string>>({});
   const [medicalHash, setMedicalHash] = useState<Record<string, string>>({});
   const [competingBids, setCompetingBids] = useState<Record<string, any>>({});
   const [cbFee, setCbFee]     = useState<Record<string, string>>({});
@@ -113,6 +114,18 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
           });
         } catch {}
       }
+      // Fetch club names for all addresses seen
+      const addrs = new Set<string>();
+      for (const d of result) { addrs.add(d.sellingClub); addrs.add(d.buyingClub); }
+      const nameMap: Record<string, string> = {};
+      for (const addr of addrs) {
+        try {
+          const name = await registry.getClubName(addr);
+          if (name) nameMap[addr.toLowerCase()] = name;
+        } catch {}
+      }
+      setClubNames(nameMap);
+
       setDeals(result);
       // Fetch competing bids for all deals
       const cbMap: Record<string, any> = {};
@@ -131,6 +144,9 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   }, [wallet.provider, wallet.address]);
 
   useEffect(() => { load(); }, [load]);
+
+  const clubLabel = (addr: string) =>
+    clubNames[addr.toLowerCase()] || `${addr.slice(0,8)}...${addr.slice(-6)}`;
 
   function cbMgrSigned() {
     return new ethers.Contract(CONTRACTS.CompetingBidManager, COMPETING_BID_MANAGER_ABI, wallet.signer!);
@@ -363,8 +379,8 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                       {/* Parties */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", marginBottom: "1.25rem" }}>
                         {[
-                          { label: "SELLING CLUB", value: `${d.sellingClub.slice(0,8)}...${d.sellingClub.slice(-6)}` },
-                          { label: "BUYING CLUB",  value: `${d.buyingClub.slice(0,8)}...${d.buyingClub.slice(-6)}` },
+                          { label: "SELLING CLUB", value: clubLabel(d.sellingClub) },
+                          { label: "BUYING CLUB",  value: clubLabel(d.buyingClub) },
                           { label: "DEADLINE",     value: d.stateDeadline > 0n ? fmtDate(d.stateDeadline) : "—" },
                         ].map(f => (
                           <div key={f.label}>
@@ -475,7 +491,7 @@ export function Deals({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
                             {/* Existing bid info */}
                             {cb && (
                               <div style={{ background: "var(--bg-primary)", border: "1px solid var(--border-accent)", borderRadius: "var(--radius-sm)", padding: "0.6rem 0.8rem", marginBottom: "0.6rem", fontFamily: "var(--font-mono)", fontSize: "0.65rem" }}>
-                                <p style={{ color: "var(--text-dim)" }}>FROM: <span style={{ color: "var(--text-primary)" }}>{cb.competingClub.slice(0,10)}...</span></p>
+                                <p style={{ color: "var(--text-dim)" }}>FROM: <span style={{ color: "var(--text-primary)" }}>{clubLabel(cb.competingClub)}</span></p>
                                 <p style={{ color: "var(--text-dim)" }}>FEE: <span style={{ color: "var(--gold)" }}>{ethers.formatUnits(cb.proposedFee, 6)} EURC</span></p>
                                 <p style={{ color: "var(--text-dim)" }}>STATUS: <span style={{ color: cbAccepted ? "var(--amber)" : "var(--text-secondary)" }}>{cbAccepted ? (cb.clubBMatched ? "MATCHED BY CLUB B" : matchOpen ? "AWAITING CLUB B MATCH" : "MATCH WINDOW CLOSED") : "PENDING ACCEPTANCE"}</span></p>
                                 {cbAccepted && <p style={{ color: "var(--text-dim)" }}>MATCH DEADLINE: <span style={{ color: "var(--text-primary)" }}>{new Date(Number(cb.matchDeadline) * 1000).toLocaleString()}</span></p>}

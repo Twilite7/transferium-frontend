@@ -129,6 +129,9 @@ function TerminationSection({ playerId, onConfirmMutual, onDispute, provider }: 
 export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> }) {
   const [myPlayers, setMyPlayers]   = useState<{ id: bigint; name: string; position: string }[]>([])
   const [activeDeals, setActiveDeals] = useState<ActiveDeal[]>([])
+  const [clubNames, setClubNames]     = useState<Record<string, string>>({})
+  const clubLabel = (addr: string) =>
+    clubNames[addr.toLowerCase()] || `${addr.slice(0,8)}...${addr.slice(-6)}`
   const [loading, setLoading]       = useState(false)
   const [txStatus, setTxStatus]     = useState<string | null>(null)
 
@@ -183,6 +186,17 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
           })
         } catch {}
       }
+      // Fetch club names
+      const addrs = new Set<string>()
+      for (const d of deals) { addrs.add(d.sellingClub); addrs.add(d.buyingClub); }
+      const nameMap: Record<string, string> = {}
+      for (const addr of addrs) {
+        try {
+          const name = await registry.getClubName(addr)
+          if (name) nameMap[addr.toLowerCase()] = name
+        } catch {}
+      }
+      setClubNames(nameMap)
       setActiveDeals(deals)
     } catch (err) {
       console.error(err)
@@ -352,8 +366,8 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
                 {/* Deal info grid */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", marginBottom: "1.25rem" }}>
                   {[
-                    { label: "SELLING CLUB", value: `${deal.sellingClub.slice(0,8)}...${deal.sellingClub.slice(-6)}` },
-                    { label: "BUYING CLUB",  value: `${deal.buyingClub.slice(0,8)}...${deal.buyingClub.slice(-6)}` },
+                    { label: "SELLING CLUB", value: clubLabel(deal.sellingClub) },
+                    { label: "BUYING CLUB",  value: clubLabel(deal.buyingClub) },
                     { label: "SALARY GUARANTEE", value: deal.signingBonusAmount > 0n ? `€${(Number(deal.signingBonusAmount) / 1e6).toLocaleString()}` : "None" },
                   ].map(({ label, value }) => (
                     <div key={label} style={{ background: "var(--bg-primary)", borderRadius: "var(--radius-sm)", padding: "0.75rem 1rem" }}>
@@ -370,7 +384,7 @@ export function PlayerPortal({ wallet }: { wallet: ReturnType<typeof useWallet> 
                       ⚡ YOUR CONSENT IS REQUIRED
                     </p>
                     <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "1rem" }}>
-                      {deal.buyingClub.slice(0,8)}...{deal.buyingClub.slice(-6)} wants to sign you for €{(Number(deal.transferFee) / 1e6).toLocaleString()}.
+                      {clubLabel(deal.buyingClub)} wants to sign you for €{(Number(deal.transferFee) / 1e6).toLocaleString()}.
                       {deal.signingBonusAmount > 0n && ` Includes €${(Number(deal.signingBonusAmount) / 1e6).toLocaleString()} signing bonus.`}
                     </p>
                     <div style={{ display: "flex", gap: "0.75rem" }}>
