@@ -86,20 +86,34 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
       const roleGrantedTopic = ethers.id("RoleGranted(bytes32,address,address)");
       const roleRevokedTopic = ethers.id("RoleRevoked(bytes32,address,address)");
       const paddedRole = ethers.zeroPadValue(CLUB_ROLE, 32);
-      const DEPLOY_BLOCK = 45833738;
+      const DEPLOY_BLOCK = 50121685; // corrected: actual creation block of the current PlayerRegistry proxy (July 4, 2026 redeploy)
       const CHUNK = 9000;
       const toBlock = await publicProvider.getBlockNumber();
-      // I paginate in 9000-block chunks to stay within Arc RPC limits
+      // I paginate in 9000-block chunks to stay within Arc RPC limits, with pacing to stay under
+      // Arc's 30 req/60s rate limit (2 requests per chunk, so ~2s between chunks keeps us well under)
       const grantedLogs: any[] = [];
       const revokedLogs: any[] = [];
+      const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
       for (let from = DEPLOY_BLOCK; from <= toBlock; from += CHUNK) {
         const to = Math.min(from + CHUNK - 1, toBlock);
-        const [g, r] = await Promise.all([
-          publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleGrantedTopic, paddedRole], fromBlock: from, toBlock: to }),
-          publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleRevokedTopic, paddedRole], fromBlock: from, toBlock: to }),
-        ]);
-        grantedLogs.push(...g);
-        revokedLogs.push(...r);
+        let attempt = 0;
+        while (true) {
+          try {
+            const [g, r] = await Promise.all([
+              publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleGrantedTopic, paddedRole], fromBlock: from, toBlock: to }),
+              publicProvider.getLogs({ address: CONTRACTS.PlayerRegistry, topics: [roleRevokedTopic, paddedRole], fromBlock: from, toBlock: to }),
+            ]);
+            grantedLogs.push(...g);
+            revokedLogs.push(...r);
+            break;
+          } catch (e: any) {
+            attempt++;
+            if (attempt > 5) throw e;
+            // Back off on rate-limit errors instead of failing the whole scan
+            await sleep(2000 * attempt);
+          }
+        }
+        if (from + CHUNK <= toBlock) await sleep(2000);
       }
       const decode = (log: any) => ("0x" + log.topics[2].slice(-40)).toLowerCase();
       const grantedFiltered = grantedLogs;
