@@ -119,14 +119,14 @@ export function Dashboard({ wallet }: { wallet: ReturnType<typeof useWallet> }) 
               attempt++;
               if (attempt > 5) throw e;
               // Back off on rate-limit errors instead of failing the whole scan
-              await sleep(2000 * attempt);
+              await sleep(4000 * attempt);
             }
           }
           // Save progress after every chunk so a mid-scan failure still keeps partial progress
           try {
             localStorage.setItem(CACHE_KEY, JSON.stringify({ lastBlock: to, active: Array.from(active) }));
           } catch {}
-          if (from + CHUNK <= toBlock) await sleep(2000);
+          if (from + CHUNK <= toBlock) await sleep(4000);
         }
       }
       const list: Club[] = await Promise.all(
